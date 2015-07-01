@@ -1,26 +1,27 @@
 import ROOT
-import sys
+import sys,os
 import argparse
-import os
+import math
 import subprocess
 
 parser=argparse.ArgumentParser()
 parser.add_argument("-p",  "--path",  help="EOS path to PCCNTuples... /store/user/..")
 parser.add_argument("-d",  "--dir", default="JobsDir", help="Output directory")
-parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
-parser.add_argument('--maxfill', type=int, default=9999, help="Maximum fill number")
+parser.add_argument('--label', type=str, default="", help="Label for output file")
+parser.add_argument('--mintime', type=float, default=0, help="Minimum time stamp")
+parser.add_argument('--maxtime', type=float, default=math.pow(2,66), help="Maximum time stamp")
 parser.add_argument("-s",  "--sub", action='store_true', default=False, help="bsub created jobs")
-parser.add_argument("--csvdir", type=str, default="/afs/cern.ch/user/m/marlow/public/lcr2/fillcsv", help="Path to BRIL csv files.")
+parser.add_argument('--vetoModules', type=str, default="vetoModules.txt", help="Text file containing list of pixel modules to veto (default: ../vetoModules.txt)")
 
 args=parser.parse_args()
 
 
-def MakeJob(outputdir,jobid,filename,minfill,maxfill):
+def MakeJob(outputdir,jobid,filename,mintime,maxtime):
     joblines=[]
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
     joblines.append("cd "+outputdir)
     joblines.append("cmsenv")
-    joblines.append("python ../makeDataCertTree.py --pccfile="+filename+" --csvdir="+args.csvdir+" -b --label="+str(jobid)+" --minfill="+str(minfill)+" --maxfill="+str(maxfill))
+    joblines.append("python ../makeVdMMiniTree.py --pccfile="+filename+" --label="+args.label+"_"+str(jobid)+" --mintime="+str(mintime)+" --maxtime="+str(maxtime)+" --vetoModules=../"+args.vetoModules)
     
     scriptFile=open(outputdir+"/job_"+str(jobid)+".sh","w+")
     for line in joblines:
@@ -30,7 +31,7 @@ def MakeJob(outputdir,jobid,filename,minfill,maxfill):
 
 def SubmitJob(job,queue="8nh"):
     baseName=str(job.split(".")[0])
-    cmd="bsub -q "+queue+" -J "+baseName+" -o "+baseName+".log < "+str(job)
+    cmd="bsub -q "+queue+" -J "+baseName.split("/")[1]+" -o "+baseName+".log < "+str(job)
     output=os.system(cmd)
     if output!=0:
         print job,"did not submit properly"
@@ -59,10 +60,9 @@ if not os.path.exists(args.dir):
 fullOutPath=fullOutPath+"/"+args.dir
 
 for job in filenames:
-    MakeJob(fullOutPath,job,filenames[job],args.minfill,args.maxfill)
+    MakeJob(fullOutPath,job,filenames[job],args.mintime,args.maxtime)
 
 if args.sub:
     print "Submitting",len(filenames),"jobs"
     for job in filenames:
         SubmitJob(args.dir+"/job_"+str(job)+".sh")
-        #raw_input()
