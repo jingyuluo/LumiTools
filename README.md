@@ -9,4 +9,4 @@ git clone http://github.com/capalmer85/LumiTools
 cd LumiTools/DataCert
 
 DataCert is weekly certification of luminosity for CMS data
-(only current working directory)
+VdmPrep is for producing vdm mini-trees for the VdM framework
