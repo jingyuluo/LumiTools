@@ -8,19 +8,19 @@ parser=argparse.ArgumentParser()
 parser.add_argument("-p",  "--path",  help="EOS path to PCCNTuples... /store/user/..")
 parser.add_argument("-d",  "--dir", default="JobsDir", help="Output directory")
 parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
-parser.add_argument('--maxfill', type=int, default=9999, help="Maximum fill number")
 parser.add_argument("-s",  "--sub", action='store_true', default=False, help="bsub created jobs")
-parser.add_argument("--csvdir", type=str, default="/afs/cern.ch/user/m/marlow/public/lcr2/fillcsv", help="Path to BRIL csv files.")
+parser.add_argument("--pkldir", type=str, default="../brildata", help="Path to BRIL pickle files.")
+parser.add_argument("-q", "--queue", type=str, default="8nh", help="lxbatch queue (default:  8nh)")
 
 args=parser.parse_args()
 
 
-def MakeJob(outputdir,jobid,filename,minfill,maxfill):
+def MakeJob(outputdir,jobid,filename,minfill):
     joblines=[]
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
     joblines.append("cd "+outputdir)
     joblines.append("cmsenv")
-    joblines.append("python ../makeDataCertTree.py --pccfile="+filename+" --csvdir="+args.csvdir+" -b --label="+str(jobid)+" --minfill="+str(minfill)+" --maxfill="+str(maxfill))
+    joblines.append("python ../makeDataCertTree.py --pccfile="+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill))
     
     scriptFile=open(outputdir+"/job_"+str(jobid)+".sh","w+")
     for line in joblines:
@@ -59,10 +59,10 @@ if not os.path.exists(args.dir):
 fullOutPath=fullOutPath+"/"+args.dir
 
 for job in filenames:
-    MakeJob(fullOutPath,job,filenames[job],args.minfill,args.maxfill)
+    MakeJob(fullOutPath,job,filenames[job],args.minfill)
 
 if args.sub:
     print "Submitting",len(filenames),"jobs"
     for job in filenames:
-        SubmitJob(args.dir+"/job_"+str(job)+".sh")
+        SubmitJob(args.dir+"/job_"+str(job)+".sh",args.queue)
         #raw_input()

@@ -4,6 +4,7 @@ import math
 import argparse
 
 
+scale=1
 def ReStyleHistogram(hist,nRows=3):
     hist.GetXaxis().SetTitleSize(0.15*nRows/5)
     hist.GetXaxis().SetTitleOffset(-0.4)
@@ -12,6 +13,7 @@ def ReStyleHistogram(hist,nRows=3):
     hist.GetYaxis().SetTitleSize(0.12*nRows/5)
     hist.GetYaxis().SetTitleOffset(0.4)
     hist.SetMinimum(0.00001)
+    hist.SetLineWidth(scale)
 
 
 def GetMaximum(histList,scale=1.0):
@@ -34,6 +36,8 @@ args = parser.parse_args()
 
 if args.batch is True:
     ROOT.gROOT.SetBatch(ROOT.kTRUE)
+    scale=4
+
 
 filename=args.certfile
 tfile=ROOT.TFile(filename)
@@ -60,7 +64,7 @@ else:
 
 runsToCheck.sort()
 missingRuns.sort()
-
+print runsToCheck
 #246908,246919,246920,246923,246926,246930,246936,246951,246960,247068,247070,247073,247078,247079,247081,247252,247253,247262,247267,247377,247381
 
 tree.SetBranchStatus("*",0)
@@ -75,7 +79,6 @@ onlyCMS=[]
 bothSets=[]
 
 runLSMax={}
-nBXperRun={}
 
 nentries=tree.GetEntries()
 for ient in range(nentries):
@@ -103,11 +106,13 @@ histpix={}
 histpix_HF = {}
 histpix_BCMF = {}
 histpix_PLT = {}
+histPCLumiB0={}
 histbest={}
 histHFLumi={}
 histBCMFLumi={}
 histPLTLumi={}
 histlayers={}
+PCClayers={}
 histPU={}
 
 bestHF={}
@@ -119,6 +124,15 @@ yLabelPix="Pixel Cluster xsec (ub)"
 
 for ient in range(nentries):
     tree.GetEntry(ient)
+    if tree.hasCMSData:
+        for layer in range(0,5):
+            layerkey=str(tree.run)+"_PCClayer"+str(layer+1)
+            if not PCClayers.has_key(layerkey):
+                PCClayers[layerkey]=ROOT.TH1F(str(tree.run)+"_PCClayer"+str(layer+1),";PCC  ;"+yLabelPix,runLSMax[tree.run],0,runLSMax[tree.run])
+                ReStyleHistogram(PCClayers[layerkey],3)
+            PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
+
+
     if tree.run in bothSets:
         if not histpix.has_key(tree.run):
             histpix[tree.run]=ROOT.TH1F(str(tree.run)+"pix",";Luminosity Section  ;"+yLabelPix,runLSMax[tree.run],0,runLSMax[tree.run])
@@ -136,48 +150,53 @@ for ient in range(nentries):
                 histlayers[layerkey]=ROOT.TH1F(str(tree.run)+"_layer"+str(layer+1),";Luminosity Section  ;"+yLabelPix,runLSMax[tree.run],0,runLSMax[tree.run])
                 ReStyleHistogram(histlayers[layerkey],3)
 
-        histpix[tree.run].Fill(tree.LS,tree.pixel_xsec)
+        histpix[tree.run].Fill(tree.LS,tree.PC_xsec)
         if (tree.HFLumi != 0):
-            histpix_HF[tree.run].Fill(tree.LS,tree.pixel_xsec*tree.BestLumi/tree.HFLumi)
+            histpix_HF[tree.run].Fill(tree.LS,tree.PC_xsec*tree.BestLumi/tree.HFLumi)
 
         if (tree.PLTLumi != 0):
-            histpix_PLT[tree.run].Fill(tree.LS,tree.pixel_xsec*tree.BestLumi/tree.PLTLumi)
+            histpix_PLT[tree.run].Fill(tree.LS,tree.PC_xsec*tree.BestLumi/tree.PLTLumi)
 
         if (tree.BCMFLumi != 0):
-            histpix_BCMF[tree.run].Fill(tree.LS,tree.pixel_xsec*tree.BestLumi/tree.BCMFLumi)
+            histpix_BCMF[tree.run].Fill(tree.LS,tree.PC_xsec*tree.BestLumi/tree.BCMFLumi)
 
         for layer in range(0,5):
-            histlayers[str(tree.run)+"_layer"+str(layer+1)].Fill(tree.LS,tree.pixel_xsec_layers[layer])
+            histlayers[str(tree.run)+"_layer"+str(layer+1)].Fill(tree.LS,tree.PC_xsec_layers[layer])
 
     if tree.hasBrilData:
         key=tree.run
         if not histbest.has_key(key):
+            histPCLumiB0[key]=ROOT.TH1F(str(tree.run)+"PCLumiB0",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histbest[key]=ROOT.TH1F(str(tree.run)+"best",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histHFLumi[key]=ROOT.TH1F(str(tree.run)+"HF",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histBCMFLumi[key]=ROOT.TH1F(str(tree.run)+"BCMF",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histPLTLumi[key]=ROOT.TH1F(str(tree.run)+"PLT",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histPU[key]=ROOT.TH1F(str(tree.run)+"bestPU",";Luminosity Section  ;Pile-up",runLSMax[tree.run],0,runLSMax[tree.run])
             ReStyleHistogram(histbest[key],3)
+            ReStyleHistogram(histPCLumiB0[key],3)
             ReStyleHistogram(histHFLumi[key],3)
             ReStyleHistogram(histBCMFLumi[key],3)
             ReStyleHistogram(histPLTLumi[key],3)
             ReStyleHistogram(histPU[key],3)
         if tree.BestLumi>0:
-            histbest[key].Fill(tree.LS,tree.BestLumi)
-            histHFLumi[key].Fill(tree.LS,tree.HFLumi)
-            histBCMFLumi[key].Fill(tree.LS,tree.BCMFLumi)
-            histPLTLumi[key].Fill(tree.LS,tree.PLTLumi)
+            histbest[key].Fill(tree.LS,tree.BestLumi_integrated)
+            histHFLumi[key].Fill(tree.LS,tree.HFLumi_integrated)
+            histBCMFLumi[key].Fill(tree.LS,tree.BCMFLumi_integrated)
+            histPLTLumi[key].Fill(tree.LS,tree.PLTLumi_integrated)
+            if tree.hasCMSData:
+                histPCLumiB0[key].Fill(tree.LS,tree.PC_lumi_integrated_B0)
         if tree.BestLumi_PU>0:
             histPU[key].Fill(tree.LS,tree.BestLumi_PU)
         if tree.HFLumi>0 and tree.BCMFLumi>0 and tree.BestLumi>0:
+            # FIXME USE ACTUAL BEST LUMI STRING FROM TREE (NOT IN TREE YET)
             if tree.run not in bestHF.keys():
                 bestHF[tree.run]=0
                 bestBCM1f[tree.run]=0
                 bestPLT[tree.run]=0
             
-            diffBestHF=math.fabs(tree.HFLumi-tree.BestLumi)
-            diffBestBCMF=math.fabs(tree.BCMFLumi-tree.BestLumi)
-            diffBestPLT=math.fabs(tree.PLTLumi-tree.BestLumi)
+            diffBestHF=math.fabs(tree.HFLumi_integrated-tree.BestLumi_integrated)
+            diffBestBCMF=math.fabs(tree.BCMFLumi_integrated-tree.BestLumi_integrated)
+            diffBestPLT=math.fabs(tree.PLTLumi_integrated-tree.BestLumi_integrated)
             minLumi=min(diffBestHF,min(diffBestBCMF,diffBestPLT))
             if minLumi==diffBestHF:
                 bestHF[tree.run]=bestHF[tree.run]+1
@@ -186,78 +205,91 @@ for ient in range(nentries):
             elif minLumi==diffBestPLT:
                 bestPLT[tree.run]=bestPLT[tree.run]+1
 
-    if tree.hasCMSData:
-        if not nBXperRun.has_key(tree.run):
-            nBXperRun[tree.run]=tree.nBX
 
-
-
-tcan=ROOT.TCanvas("tcan","",1200,700)
+tcan=ROOT.TCanvas("tcan","",1200*scale,700*scale)
 padlumis =ROOT.TPad("padlumis", "",0.0,0.0,0.5,1.0)
 padpixxsec =ROOT.TPad("padpixxsec","",0.5,0.0,1.0,1.0)
 
 padlumis.Draw()
 padpixxsec.Draw()
 
-pix_xsec=7.4e6
+PC_calib_xsec_B0=7.4e6
+PC_calib_xsec_B3p8=8.6e6
 
 for run in runsToCheck:
 
-    if nBXperRun.has_key(run):
-        print "Run, nbx,", run, nBXperRun[run]
     padlumis.Divide(1,3)
     padpixxsec.Divide(1,4)
-    line=ROOT.TLine(0,pix_xsec,runLSMax[run],pix_xsec)
-    line.SetLineColor(632)
-    line.SetLineColor(ROOT.kDashed)
+    lineB0=ROOT.TLine(0,PC_calib_xsec_B0,runLSMax[run],PC_calib_xsec_B0)
+    lineB0.SetLineColor(634)
+    lineB0.SetLineStyle(ROOT.kDashed)
+    lineB0.SetLineWidth(2*scale)
+    
+    lineB3p8=ROOT.TLine(0,PC_calib_xsec_B3p8,runLSMax[run],PC_calib_xsec_B3p8)
+    lineB3p8.SetLineColor(418)
+    lineB3p8.SetLineStyle(ROOT.kDashed)
+    lineB3p8.SetLineWidth(2*scale)
+
+    legPixXSec=ROOT.TLegend(0.8,0.7,0.9,0.9)
+    legPixXSec.AddEntry(lineB3p8,"B=3.8","l")
+    legPixXSec.AddEntry(lineB0,"B=0","l")
+
 
     if run in histpix.keys():
         padpixxsec.cd(1)
-        histpix[run].SetMaximum(max(pix_xsec,histpix[run].GetMaximum())*1.2)
+        histpix[run].SetMaximum(max(PC_calib_xsec_B3p8,histpix[run].GetMaximum())*1.4)
         label=ROOT.TText(0,histpix[run].GetMaximum()*0.88,"   Pixel Cluster Cross Section - Run="+str(run))
         label.SetTextSize(.1)
         histpix[run].Draw("hist")
         label.Draw("same")
-        line.Draw("same")
+        lineB0.Draw("same")
+        lineB3p8.Draw("same")
+        legPixXSec.Draw("same")
         padpixxsec.Update()
 
         padpixxsec.cd(2)
-        histpix_HF[run].SetMaximum(max(pix_xsec,histpix_HF[run].GetMaximum())*1.2)
+        histpix_HF[run].SetMaximum(max(PC_calib_xsec_B3p8,histpix_HF[run].GetMaximum())*1.4)
         label3=ROOT.TText(0,histpix_HF[run].GetMaximum()*0.88,"   Pixel Cluster Cross Section HF - Run="+str(run))
         label3.SetTextSize(.1)
         histpix_HF[run].Draw("hist")
         label3.Draw("same")
-        line.Draw("same")
+        lineB0.Draw("same")
+        lineB3p8.Draw("same")
+        legPixXSec.Draw("same")
         padpixxsec.Update()
 
         padpixxsec.cd(3)
-        histpix_BCMF[run].SetMaximum(max(pix_xsec,histpix_BCMF[run].GetMaximum())*1.2)
+        histpix_BCMF[run].SetMaximum(max(PC_calib_xsec_B3p8,histpix_BCMF[run].GetMaximum())*1.4)
         label4=ROOT.TText(0,histpix_BCMF[run].GetMaximum()*0.88,"   Pixel Cluster Cross Section BCM1f - Run="+str(run))
         label4.SetTextSize(.1)
         histpix_BCMF[run].Draw("hist")
         label4.Draw("same")
-        line.Draw("same")
+        lineB0.Draw("same")
+        lineB3p8.Draw("same")
+        legPixXSec.Draw("same")
         padpixxsec.Update()
 
         padpixxsec.cd(4)
-        histpix_PLT[run].SetMaximum(max(pix_xsec,histpix_PLT[run].GetMaximum())*1.2)
+        histpix_PLT[run].SetMaximum(max(PC_calib_xsec_B3p8,histpix_PLT[run].GetMaximum())*1.4)
         label5=ROOT.TText(0,histpix_PLT[run].GetMaximum()*0.88,"   Pixel Cluster Cross Section PLT - Run="+str(run))
         label5.SetTextSize(.1)
         histpix_PLT[run].Draw("hist")
         label5.Draw("same")
-        line.Draw("same")
+        lineB0.Draw("same")
+        lineB3p8.Draw("same")
+        legPixXSec.Draw("same")
         padpixxsec.Update()
 
     if run in histbest.keys():
         padlumis.cd(1)
-        maxHist=GetMaximum([histbest[run],histHFLumi[run],histBCMFLumi[run],histPLTLumi[run]],1.1)
+        maxHist=GetMaximum([histbest[run],histHFLumi[run],histBCMFLumi[run],histPLTLumi[run],histPCLumiB0[key]],1.1)
 
         if maxHist>2*histbest[run].GetMaximum():
             print "There is a serious outlier; setting max to 1.5*bestmax."
             maxHist=histbest[run].GetMaximum()*1.5
 
         histbest[run].SetLineColor(ROOT.kBlack)
-        histbest[run].SetLineWidth(2)
+        histbest[run].SetLineWidth(2*scale)
         histbest[run].SetMaximum(maxHist)
         histbest[run].Draw("hist")
         print "intL for best in run",run,"is",histbest[run].Integral()
@@ -267,6 +299,8 @@ for run in runsToCheck:
         histBCMFLumi[run].Draw("histsame")
         histPLTLumi[run].SetLineColor(601)
         histPLTLumi[run].Draw("histsame")
+        histPCLumiB0[run].SetLineColor(802)
+        histPCLumiB0[run].Draw("histsame")
         
         leg=ROOT.TLegend(0.1,0.1,0.7,0.4)
         tot=float(bestHF[run]+bestBCM1f[run]+bestPLT[run])
@@ -274,6 +308,7 @@ for run in runsToCheck:
         leg.AddEntry(histHFLumi[run],"HF: "+"{0:.1f}".format((bestHF[run]/tot)*100)+"%","l")
         leg.AddEntry(histBCMFLumi[run],"BCM1f: "+"{0:.1f}".format((bestBCM1f[run]/tot)*100)+"%","l")
         leg.AddEntry(histPLTLumi[run],"PLT: "+"{0:.1f}".format((bestPLT[run]/tot)*100)+"%","l")
+        leg.AddEntry(histPCLumiB0[run],"PCC - B=0","l")
         leg.SetFillStyle(0)
         leg.SetBorderSize(0)
         leg.Draw("same")
@@ -329,7 +364,8 @@ for run in runsToCheck:
         ReStyleHistogram(histpix[run],3)
         histpix[run].Draw("hist")
         label.Draw("same")
-        line.Draw("same")
+        lineB0.Draw("same")
+        lineB3p8.Draw("same")
         for layer in range(5):
             lines[layer]=ROOT.TF1("pol1_"+str(layer+1),"pol1",70,175)
             canlayers.cd(layer+2)
@@ -344,6 +380,24 @@ for run in runsToCheck:
             layertexts[layer].Draw("same")
         canlayers.Update()
         canlayers.SaveAs(str(run)+"_layers.png")
+
+
+    if run in bothSets or run in onlyCMS:
+        layertexts={}
+        lines={}
+        stability=ROOT.TCanvas("stability","",1200,700)
+
+        for layer in range(5):
+            key=str(run)+"_PCClayer"+str(layer+1)
+            PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
+            PCClayers[key].SetMaximum(PCClayers[key].GetMaximum()*1.2)
+            #histlayers[key].Fit(lines[layer],"","",75,175)
+            if layer==0:
+                PCClayers[key].Draw("hist")
+            else:
+                PCClayers[key].Draw("histsame")
+        stability.Update()
+        stability.SaveAs(str(run)+"_stability.png")
 
 
 

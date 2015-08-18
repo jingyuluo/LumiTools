@@ -4,25 +4,28 @@ import numpy
 import array
 import math
 import argparse
+import pickle
+import time
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--pccfile', type=str, default="", help='The pccfile to input (pixel clusters and vertices)')
-parser.add_argument('--csvdir', type=str, default="/afs/cern.ch/user/m/marlow/public/lcr2/fillcsv/", help='bril data is here')
+parser.add_argument('--pkldir', type=str, default="brildata", help='bril data is here')
 parser.add_argument('--nobril', type=bool, default=False, help="Don\'t process bril data (default false)")
-parser.add_argument('--label', type=str, default="", help="Label for output file")
+parser.add_argument('-l','--label',type=str,default="",  help="Label for output file")
 parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
-parser.add_argument('--maxfill', type=int, default=9999, help="Maximum fill number")
+parser.add_argument('--minrun',  type=int, default=230000,help="Minimum run number")
 parser.add_argument('-b', '--isBatch', default=False, action="store_true", help="Maximum fill number")
+parser.add_argument('--eventBased', default=False, action="store_true", help="PCC ntuples are event based (default false--typically LS-based)")
 
 args = parser.parse_args()
 
 if args.nobril:
-    args.csvdir=""
+    args.pkldir=""
 
 
 f_LHC = 11245.6
 t_LS=math.pow(2,18)/f_LHC
-xsec_mb=80000. #microbarn
+xsec_ub=80000. #microbarn
 
 
 def is_number(s):
@@ -104,94 +107,30 @@ def GetMeanAndMeanError(list):
 
 
 
-csvfilenames=[]
+startTime=time.time()
+onlineLumi={} #(fill,run,LS)
 
 if not args.nobril:
-    files=os.listdir(args.csvdir)
+    files=os.listdir(args.pkldir)
     files.sort()
-    for file in files:
-        if file.find("Fill") !=-1:
-            thisFill=int(file.split("ill")[1].split(".csv")[0])
-            if thisFill>=args.minfill and thisFill<=args.maxfill:
-                csvfilenames.append(args.csvdir+"/"+file)
-
-
-print len(csvfilenames)," csv files"
-
-onlineLumi={} #(run,LS,LN)
-
-fields = ['Fill','Run','LS','NB4','Mode','secs','msecs','deadfrac','PrimarySource','PrimaryLumi','HF','HFRaw','PLT','PLTRaw','PLTZero','PLTZeroRaw','BCMF','BCMFRaw','Ncol','Text','I','L[I]']
-icsv=1
-for csvfilename in csvfilenames:
-    print csvfilename,icsv
-    icsv=icsv+1
-    lines = open(csvfilename,'r').readlines()
-    for line in lines : 
-        vals = line.split(',')
-        try:
-            key=(int(float(vals[fields.index('Run')])),int(float(vals[fields.index('LS')])),int(float(vals[fields.index('NB4')])))
-            if onlineLumi.has_key(key):
-                print "onlineLumi ALREADY HAS KEY",key
-                print onlineLumi[key]['line']
-                print line
-            
-            onlineLumi[key]={}
-            onlineLumi[key]['line']=line
-            for field in fields:
-                val=vals[fields.index(field)]
-                if is_number(val):
-                    val=float(val)
-                onlineLumi[key][field]=val
-        except:
-            if line.split(",")[fields.index('PrimaryLumi')]!="0" and line.split(",")[fields.index('PrimaryLumi')]!="PrimaryLumi":
-                print "didn't work for line with non-zero lumi"
-                print line
-
-print "len(onlineLumi),",len(onlineLumi)
-
-
-onlineLumiPerLSList={} #(run,LS)
-onlineLumiPerLSMerged={} #(run,LS)
-
-for LN in onlineLumi.keys():
-    if not onlineLumiPerLSList.has_key((LN[0],LN[1])):
-        onlineLumiPerLSList[(LN[0],LN[1])]=[]
-        onlineLumiPerLSMerged[(LN[0],LN[1])]={}
-    onlineLumiPerLSList[(LN[0],LN[1])].append(onlineLumi[LN])
-
-noField={}
-
-for LS_key in onlineLumiPerLSList:
-    unMergedLists={}
-    mergedLists={}
-    for field in fields:
-        unMergedLists[field]=[]
-        mergedLists[field]=0
-    for NB_dict in onlineLumiPerLSList[LS_key]:
-        for field in fields:
+    for fileName in files:
+        if fileName.find(".pkl") !=-1:
             try:
-                unMergedLists[field].append(NB_dict[field])
+                filePath=args.pkldir+"/"+fileName
+                pklFile=open(filePath,'rb')
+                data=pickle.load(pklFile)
+                onlineLumi.update(data)
+                pklFile.close()
             except:
-                if not noField.has_key(field):
-                    noField[field]=0
-                noField[field]=noField[field]+1
+                print "Problem with pickle file",fileName
+        else:
+            continue
 
-                #print "unMergedList has no",field,"for",LS_key
+        print fileName," new total LSs: ",len(onlineLumi)      
 
+endTime=time.time()
+print "Duration: ",endTime-startTime
 
-    for field in unMergedLists:
-        item_list=unMergedLists[field]
-        mergedLists[field]=unMergedLists[field]
-        if len(item_list)>0:
-            if is_number(item_list[0]):
-                try:
-                    mergedLists[field]=sum(unMergedLists[field])/len(unMergedLists[field])
-                except:
-                    print unMergedLists[field]
-
-    onlineLumiPerLSMerged[LS_key]=mergedLists
-
-print "Missing fields:",noField
 
 maxLS={}
     
@@ -199,7 +138,6 @@ vertexCounts={}
 pixelCounts={}
 lumiEstimate={}
 # key is bx,LS and LS
-
 
 if args.pccfile!="":
     filename=args.pccfile
@@ -225,14 +163,10 @@ if args.pccfile!="":
     print nentries
     maxNBX=0
     for iev in range(nentries):
-    #for iev in range(60):
         tree.GetEntry(iev)
-        #if tree.nPU < 70:
-        #    continue
-        #print "PU",tree.nPU
         if iev%1000==0:
             print "iev,",iev
-            print "(tree.run,tree.LS)",tree.LS
+            print "(tree.run,tree.LS)",tree.run,tree.LS
             print "len(tree.nPixelClusters)",len(tree.nPixelClusters)
             print "len(tree.layers)",len(tree.layers)
         if len(tree.nPixelClusters)==0:
@@ -268,8 +202,8 @@ if args.pccfile!="":
             layerNumbers.append(item[1])
     
         counter=0
+        bxid=-1
         for item in tree.nPixelClusters:
-            counter=counter+1
             bxid=item[0][0]
             module=item[0][1]
             layer=tree.layers[module]
@@ -286,25 +220,30 @@ if args.pccfile!="":
                 pixelCount[(tree.run,tree.LS)][6][bxid]=pixelCount[(tree.run,tree.LS)][6][bxid]+clusters
                 pixelCount[(tree.run,tree.LS)][0]=pixelCount[(tree.run,tree.LS)][0]+clusters
     
-        
-            if bxids.has_key(bxid)==0:
-               bxids[bxid]=1
-            else:
-               bxids[bxid]=bxids[bxid]+1
-    
-        pixelCounts[(tree.run,tree.LS)][0].append([pixelCount[(tree.run,tree.LS)][0]/float(tree.eventCounter),1])
+        if bxids.has_key(bxid)==0:
+           bxids[bxid]=1
+        else:
+           bxids[bxid]=bxids[bxid]+1
+        counter=counter+1
+  
+        if not args.eventBased: #divide by the sum of events
+            pixelCount[(tree.run,tree.LS)][0]=pixelCount[(tree.run,tree.LS)][0]/float(tree.eventCounter)
+            for layer in range(1,6):
+                pixelCount[(tree.run,tree.LS)][layer]=pixelCount[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
+            for bxid in bxids:
+                pixelCount[(tree.run,tree.LS)][6][bxid]=pixelCount[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
+
+        pixelCounts[(tree.run,tree.LS)][0].append([pixelCount[(tree.run,tree.LS)][0],1])
         for layer in range(1,6):
-            #print pixelCount[(tree.run,tree.LS,layer)], tree.eventCounter
-            pixelCounts[(tree.run,tree.LS)][layer].append([pixelCount[(tree.run,tree.LS)][layer]/float(tree.eventCounter),1])
+            pixelCounts[(tree.run,tree.LS)][layer].append([pixelCount[(tree.run,tree.LS)][layer],1])
         for bxid in bxids:
             if not pixelCounts[(tree.run,tree.LS)][6].has_key(bxid):
                 pixelCounts[(tree.run,tree.LS)][6][bxid]=[]
-            pixelCounts[(tree.run,tree.LS)][6][bxid].append([pixelCount[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid]),1])
-
+            pixelCounts[(tree.run,tree.LS)][6][bxid].append([pixelCount[(tree.run,tree.LS)][6][bxid],1])
 
 
 cmskeys=pixelCounts.keys()
-brilkeys=onlineLumiPerLSMerged.keys()
+brilkeys=onlineLumi.keys()
 LSKeys=list(set(cmskeys+brilkeys))
 
 LSKeys.sort()
@@ -317,10 +256,12 @@ else:
 newfile=ROOT.TFile(newfilename,"recreate")
 newtree=ROOT.TTree("certtree","validationtree")
 
+fill= array.array( 'l', [ 0 ] )
 run = array.array( 'l', [ 0 ] )
 LS  = array.array( 'l', [ 0 ] )
 nBX = array.array( 'l', [ 0 ] )
 nCluster    = array.array( 'd', [ 0 ] )
+nClusterError    = array.array( 'd', [ 0 ] )
 nPCPerLayer = array.array( 'd', 5*[ 0 ] )
 
 HFLumi    = array.array( 'd', [ 0 ] )
@@ -337,8 +278,15 @@ BestLumi_integrated  = array.array( 'd', [ 0 ] )
 hasBrilData = array.array('b', [0])
 hasCMSData  = array.array('b', [0])
 
-pixel_xsec         = array.array( 'd', [ 0 ] )
-pixel_xsec_layers  = array.array( 'd', 5*[ 0 ] )
+PC_lumi_B0      = array.array( 'd', [ 0 ] )
+PC_lumi_B3p8    = array.array( 'd', [ 0 ] )
+PC_lumi_integrated_B0      = array.array( 'd', [ 0 ] )
+PC_lumi_integrated_B3p8    = array.array( 'd', [ 0 ] )
+PC_lumi_integrated_error_B0      = array.array( 'd', [ 0 ] )
+PC_lumi_integrated_error_B3p8    = array.array( 'd', [ 0 ] )
+
+PC_xsec         = array.array( 'd', [ 0 ] )
+PC_xsec_layers  = array.array( 'd', 5*[ 0 ] )
 
 nPCPerBXid  = array.array( 'd', 3600*[ 0 ] )
 BXid        = array.array( 'd', 3600*[ 0 ] )
@@ -349,15 +297,23 @@ goodVertices_eff  = array.array( 'd', [ 0 ] )
 # 0 - average vertices; 1 - xsec; 2 - vertex efficiency
 
 
+newtree.Branch("fill",fill,"fill/I")
 newtree.Branch("run",run,"run/I")
 newtree.Branch("LS",LS,"LS/I")
 newtree.Branch("nBX",nBX,"nBX/I")
 newtree.Branch("nCluster",nCluster,"nCluster/D")
+newtree.Branch("nClusterError",nClusterError,"nClusterError/D")
 newtree.Branch("nPCPerLayer",nPCPerLayer,"nPCPerLayer[5]/D")
 
-newtree.Branch("pixel_xsec",pixel_xsec,"pixel_xsec/D")
-newtree.Branch("pixel_xsec_layers",pixel_xsec_layers,"pixel_xsec_layers[5]/D")
+newtree.Branch("PC_lumi_B0",PC_lumi_B0,"PC_lumi_B0/D")
+newtree.Branch("PC_lumi_B3p8",PC_lumi_B3p8,"PC_lumi_B3p8/D")
+newtree.Branch("PC_lumi_integrated_B0",PC_lumi_integrated_B0,"PC_lumi_integrated_B0/D")
+newtree.Branch("PC_lumi_integrated_B3p8",PC_lumi_integrated_B3p8,"PC_lumi_integrated_B3p8/D")
+newtree.Branch("PC_lumi_integrated_error_B0",PC_lumi_integrated_error_B0,"PC_lumi_integrated_error_B0/D")
+newtree.Branch("PC_lumi_integrated_error_B3p8",PC_lumi_integrated_error_B3p8,"PC_lumi_integrated_error_B3p8/D")
 
+newtree.Branch("PC_xsec",PC_xsec,"PC_xsec/D")
+newtree.Branch("PC_xsec_layers",PC_xsec_layers,"PC_xsec_layers[5]/D")
 
 newtree.Branch("BXid",BXid,"BXid[nBX]/D")
 newtree.Branch("nPCPerBXid",nPCPerBXid,"nPCPerBXid[nBX]/D")
@@ -382,6 +338,11 @@ newtree.Branch("goodVertices_xsec", goodVertices_xsec,"goodVertices_xsec/D")
 newtree.Branch("goodVertices_eff",  goodVertices_eff, "goodVertices_eff/D")
 
 
+PC_calib_xsec={}
+PC_calib_xsec["B0"]=7.4e6
+PC_calib_xsec["B3p8"]=8.6e6
+
+
 hists={}
 PCCPerLayer=[118.,44.3,39.2,34.9,22.3,23.9]
 for key in LSKeys:
@@ -402,48 +363,69 @@ for key in LSKeys:
     BCMFLumi_integrated[0]=-1
         
     BestLumi_PU[0]=-1
-    pixel_xsec[0]=-1
+    PC_xsec[0]=-1
+
+    PC_lumi_B0[0]=-1
+    PC_lumi_B3p8[0]=-1
+    PC_lumi_integrated_B0[0]=-1
+    PC_lumi_integrated_B3p8[0]=-1
+    PC_lumi_integrated_error_B0[0]=-1
+    PC_lumi_integrated_error_B3p8[0]=-1
 
     goodVertices[0]=-1
     goodVertices_xsec[0]=-1
     goodVertices_eff[0]=-1
 
     for layer in range(0,5):
-        pixel_xsec_layers[layer]=-1
+        PC_xsec_layers[layer]=-1
         nPCPerLayer[layer]=-1
 
-    try:
-        if key in brilkeys:
+    if key in brilkeys:
+        try:
             hasBrilData[0]=True
-            HFLumi[0]=onlineLumiPerLSMerged[key]['HF']
-            BestLumi[0]=onlineLumiPerLSMerged[key]['PrimaryLumi']
-            PLTLumi[0] =onlineLumiPerLSMerged[key]['PLT']
-            BCMFLumi[0]=onlineLumiPerLSMerged[key]['BCMF']
-            
-            HFLumi_integrated[0]=onlineLumiPerLSMerged[key]['HF']*t_LS
-            BestLumi_integrated[0]=onlineLumiPerLSMerged[key]['PrimaryLumi']*t_LS
-            PLTLumi_integrated[0] =onlineLumiPerLSMerged[key]['PLT']*t_LS
-            BCMFLumi_integrated[0]=onlineLumiPerLSMerged[key]['BCMF']*t_LS
-            
+            fill[0]=int(onlineLumi[key]['fill'])
+            BestLumi_integrated[0]=float(onlineLumi[key][onlineLumi[key]['best']])
+            BestLumi[0]=BestLumi_integrated[0]
+            BestLumi_PU[0]=float(onlineLumi[key]['PU_best'])
+            if BestLumi[0]>0:
+                BestLumi[0]=BestLumi[0]/t_LS
+            if onlineLumi[key].has_key('HFOC'):
+                HFLumi_integrated[0]=float(onlineLumi[key]['HFOC'])
+                HFLumi[0]=HFLumi_integrated[0]
+                if HFLumi[0]>0:
+                    HFLumi[0]=HFLumi[0]/t_LS
+            if onlineLumi[key].has_key('PLT'):
+                PLTLumi_integrated[0]=float(onlineLumi[key]['PLT'])
+                PLTLumi[0]=PLTLumi_integrated[0]
+                if PLTLumi[0]>0:
+                    PLTLumi[0]=PLTLumi[0]/t_LS
+            if onlineLumi[key].has_key('BCM1F'):
+                BCMFLumi_integrated[0]=float(onlineLumi[key]['BCM1F'])
+                BCMFLumi[0]=BCMFLumi_integrated[0]
+                if BCMFLumi[0]>0:
+                    BCMFLumi[0]=BCMFLumi[0]/t_LS
+        except:
+            print "Failed in brilkey",key,onlineLumi[key]
 
-        if key in cmskeys:
+    if key in cmskeys:
+        try:
             hasCMSData[0]=True
             count=0
             mean=AverageWithWeight(vertexCounts[key])
             #print mean
             goodVertices[0]=mean
-            
+            nBX[0]=len(tree.BXNo)
             
             for PCCs in pixelCounts[key]:
                 if count==0:
                     mean,error=GetMeanAndMeanError(PCCs)
                     nCluster[0]=mean
+                    nClusterError[0]=error
                 elif count<6:
                     mean,error=GetMeanAndMeanError(PCCs)
                     nPCPerLayer[count-1]=mean
                 else:
                     ibx=0
-                    nBX[0]=len(PCCs)
                     for bxid in PCCs:
                         mean,error=GetMeanAndMeanError(PCCs[bxid])
                         BXid[ibx]=bxid
@@ -453,25 +435,41 @@ for key in LSKeys:
                             print "ibx,nBX[0],",ibx,nBX[0],", but WHY?!!!"
 
                 count=count+1 
-  
-        if hasCMSData[0] and hasBrilData[0]: 
-            BestLumi_PU[0]=onlineLumiPerLSMerged[key]['PrimaryLumi']*xsec_mb/nBX[0]/f_LHC
-            pixel_xsec[0]=nCluster[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
+            
+            totalPC=nCluster[0]*math.pow(2,18)*nBX[0]
+            totalPCError=nClusterError[0]*math.pow(2,18)*nBX[0]
+            
+            PC_lumi_B0[0]=totalPC/PC_calib_xsec["B0"]/t_LS
+            PC_lumi_B3p8[0]=totalPC/PC_calib_xsec["B3p8"]/t_LS
+            PC_lumi_integrated_B0[0]=totalPC/PC_calib_xsec["B0"]
+            PC_lumi_integrated_B3p8[0]=totalPC/PC_calib_xsec["B3p8"]
+            PC_lumi_integrated_error_B0[0]=totalPCError/PC_calib_xsec["B0"]
+            PC_lumi_integrated_error_B3p8[0]=totalPCError/PC_calib_xsec["B3p8"]
+            
+        except:
+            print "Failed in cmskey",key
+            
+ 
+    if hasCMSData[0] and hasBrilData[0]: 
+        try:
+            PC_xsec[0]=nCluster[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
             goodVertices_xsec[0]=goodVertices[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
-            goodVertices_eff[0]=goodVertices_xsec[0]/xsec_mb
-            #print key,pixel_xsec[0],goodVertices_xsec[0],goodVertices_eff[0]
+            goodVertices_eff[0]=goodVertices_xsec[0]/xsec_ub
+            #print key,PC_xsec[0],goodVertices_xsec[0],goodVertices_eff[0]
             for layer in range(0,5):
-                pixel_xsec_layers[layer]=nPCPerLayer[layer]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
+                PC_xsec_layers[layer]=nPCPerLayer[layer]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
+            if BestLumi_PU[0]==0 and BestLumi[0]>0 and nBX[0]>0:
+                BestLumi_PU[0]=BestLumi[0]*xsec_ub/nBX[0]/f_LHC
+                
+        except:
+            print "Failed cms+bril computation",key,onlineLumi[key]
 
-
-        if args.isBatch is True:
-            if hasCMSData[0] and hasBrilData[0]: 
-                newtree.Fill()
-        else:        
+    if args.isBatch is True:
+        if hasCMSData[0] and hasBrilData[0]: 
             newtree.Fill()
+    else:        
+        newtree.Fill()
 
-    except:
-        print "I've failed me for the last time",key
 
 newfile.Write()
 newfile.Close()
