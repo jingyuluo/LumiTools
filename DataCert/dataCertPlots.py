@@ -106,7 +106,7 @@ histpix={}
 histpix_HF = {}
 histpix_BCMF = {}
 histpix_PLT = {}
-histPCLumiB0={}
+histPCLumiB3p8={}
 histbest={}
 histHFLumi={}
 histBCMFLumi={}
@@ -166,14 +166,14 @@ for ient in range(nentries):
     if tree.hasBrilData:
         key=tree.run
         if not histbest.has_key(key):
-            histPCLumiB0[key]=ROOT.TH1F(str(tree.run)+"PCLumiB0",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
+            histPCLumiB3p8[key]=ROOT.TH1F(str(tree.run)+"PCLumiB3p8",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histbest[key]=ROOT.TH1F(str(tree.run)+"best",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histHFLumi[key]=ROOT.TH1F(str(tree.run)+"HF",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histBCMFLumi[key]=ROOT.TH1F(str(tree.run)+"BCMF",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histPLTLumi[key]=ROOT.TH1F(str(tree.run)+"PLT",";Luminosity Section  ;Integrated Luminosity(ub^{-1})",runLSMax[tree.run],0,runLSMax[tree.run])
             histPU[key]=ROOT.TH1F(str(tree.run)+"bestPU",";Luminosity Section  ;Pile-up",runLSMax[tree.run],0,runLSMax[tree.run])
             ReStyleHistogram(histbest[key],3)
-            ReStyleHistogram(histPCLumiB0[key],3)
+            ReStyleHistogram(histPCLumiB3p8[key],3)
             ReStyleHistogram(histHFLumi[key],3)
             ReStyleHistogram(histBCMFLumi[key],3)
             ReStyleHistogram(histPLTLumi[key],3)
@@ -184,7 +184,7 @@ for ient in range(nentries):
             histBCMFLumi[key].Fill(tree.LS,tree.BCMFLumi_integrated)
             histPLTLumi[key].Fill(tree.LS,tree.PLTLumi_integrated)
             if tree.hasCMSData:
-                histPCLumiB0[key].Fill(tree.LS,tree.PC_lumi_integrated_B0)
+                histPCLumiB3p8[key].Fill(tree.LS,tree.PC_lumi_integrated_B3p8)
         if tree.BestLumi_PU>0:
             histPU[key].Fill(tree.LS,tree.BestLumi_PU)
         if tree.HFLumi>0 and tree.BCMFLumi>0 and tree.BestLumi>0:
@@ -282,7 +282,7 @@ for run in runsToCheck:
 
     if run in histbest.keys():
         padlumis.cd(1)
-        maxHist=GetMaximum([histbest[run],histHFLumi[run],histBCMFLumi[run],histPLTLumi[run],histPCLumiB0[key]],1.1)
+        maxHist=GetMaximum([histbest[run],histHFLumi[run],histBCMFLumi[run],histPLTLumi[run],histPCLumiB3p8[run]],1.1)
 
         if maxHist>2*histbest[run].GetMaximum():
             print "There is a serious outlier; setting max to 1.5*bestmax."
@@ -299,8 +299,8 @@ for run in runsToCheck:
         histBCMFLumi[run].Draw("histsame")
         histPLTLumi[run].SetLineColor(601)
         histPLTLumi[run].Draw("histsame")
-        histPCLumiB0[run].SetLineColor(802)
-        histPCLumiB0[run].Draw("histsame")
+        histPCLumiB3p8[run].SetLineColor(802)
+        histPCLumiB3p8[run].Draw("histsame")
         
         leg=ROOT.TLegend(0.1,0.1,0.7,0.4)
         tot=float(bestHF[run]+bestBCM1f[run]+bestPLT[run])
@@ -308,13 +308,19 @@ for run in runsToCheck:
         leg.AddEntry(histHFLumi[run],"HF: "+"{0:.1f}".format((bestHF[run]/tot)*100)+"%","l")
         leg.AddEntry(histBCMFLumi[run],"BCM1f: "+"{0:.1f}".format((bestBCM1f[run]/tot)*100)+"%","l")
         leg.AddEntry(histPLTLumi[run],"PLT: "+"{0:.1f}".format((bestPLT[run]/tot)*100)+"%","l")
-        leg.AddEntry(histPCLumiB0[run],"PCC - B=0","l")
+        leg.AddEntry(histPCLumiB3p8[run],"PCC - B=3.8","l")
         leg.SetFillStyle(0)
         leg.SetBorderSize(0)
         leg.Draw("same")
         padlumis.Update()
 
         padlumis.cd(2)
+        PCLumiOBest=histPCLumiB3p8[run].Clone("best_o_PCLumi")
+        PCLumiOBest.Divide(histbest[run])
+        PCLumiOBest.SetMaximum(2.0)
+        PCLumiOBest.SetTitle(";Luminosity Section  ;Best/PCLumi")
+        PCLumiOBest.SetLineColor(802)
+
         bestOHFLumi=histbest[run].Clone("best_o_HFLumi")
         bestOHFLumi.Divide(histHFLumi[run])
         bestOHFLumi.SetMaximum(2.0)
@@ -331,10 +337,12 @@ for run in runsToCheck:
         pltOverHF.SetTitle(";Luminosity Section  ;PLTLumi/HFLumi")
 
         leg2=ROOT.TLegend(0.1,0.7,0.5,0.9)
-        leg2.AddEntry(bestOHFLumi,"Best/HF - Run="+str(run),"l")
+        leg2.AddEntry(PCLumiOBest,"PCLumi/Best - Run="+str(run),"l")
+        leg2.AddEntry(bestOHFLumi,"Best/HF","l")
         leg2.AddEntry(hfOverBcm1f,"HF/BCM1f","l")
         leg2.AddEntry(pltOverHF,"PLT/HF","l")
-        bestOHFLumi.Draw("hist")
+        PCLumiOBest.Draw("hist")
+        bestOHFLumi.Draw("histsame")
         hfOverBcm1f.Draw("histsame")
         pltOverHF.Draw("histsame")
         leg2.Draw("sames")
@@ -389,8 +397,6 @@ for run in runsToCheck:
 
         for layer in range(5):
             key=str(run)+"_PCClayer"+str(layer+1)
-            PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
-            PCClayers[key].SetMaximum(PCClayers[key].GetMaximum()*1.2)
             #histlayers[key].Fit(lines[layer],"","",75,175)
             if layer==0:
                 PCClayers[key].Draw("hist")
