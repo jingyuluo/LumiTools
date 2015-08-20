@@ -12,6 +12,8 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
             cmd.extend(["-r",str(args.run)])
         if args.fill!=0:
             cmd.extend(["-f",str(args.fill)])
+        if args.xing:
+            cmd.extend(["--xing"])
 
     if type is not "best":
         cmd.append("--type="+type)
@@ -34,6 +36,15 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
                     onlineLumiDict[lskey]["PU_best"]=items[8].strip() #PU
                 else:
                     onlineLumiDict[lskey][type]=items[6].strip() #integrated lumi
+                if args.xing:
+                    if type is not "best":
+                        bxname = type+"_BX"
+                        onlineLumiDict[lskey][bxname]={}
+                        bxlist = items[10].lstrip().lstrip("[").rstrip().rstrip("]").split()
+                        for i in range(len(bxlist)):
+                            if i%3==0:
+                                onlineLumiDict[lskey][bxname][bxlist[i]]=bxlist[i+1]
+                               
             except:
                 print "Problem with line",line
    
@@ -45,7 +56,7 @@ parser.add_argument('-r', '--run',  type=int, default=0, help="run number")
 parser.add_argument('-j', '--json', type=str, default="", help="JSON formatted file with runs and LSs ranges you desire")
 parser.add_argument('-o', '--overwrite', action='store_true', default=False, help="Overwrite data if it already exists (default False)")
 parser.add_argument('--datadir',    type=str, default="brildata", help="Location to put/retrieve bril data")
-
+parser.add_argument('-x', '--xing', action='store_true', default=False, help="Get the Lumi per BX")
 args = parser.parse_args()
 
     
@@ -116,19 +127,20 @@ pklFile=open(args.datadir+"/"+pklFileName, 'w')
 pickle.dump(onlineLumi, pklFile)
 pklFile.close()
 
-outFile=open(args.datadir+"/"+outFileName,"w+")
+if not args.xing:
+    outFile=open(args.datadir+"/"+outFileName,"w+")
 
-allKeys=onlineLumi.keys()
-allKeys.sort()
+    allKeys=onlineLumi.keys()
+    allKeys.sort()
 
-keyKey=["run","ls"]
-for lskey in allKeys:
-    iPart=0
-    for part in lskey:
-        outFile.write(keyKey[iPart]+","+str(part)+",")
-        iPart=iPart+1
-    for detector in onlineLumi[lskey]:
-        outFile.write(detector+","+onlineLumi[lskey][detector]+",")
-    outFile.write("\n")
+    keyKey=["run","ls"]
+    for lskey in allKeys:
+        iPart=0
+        for part in lskey:
+            outFile.write(keyKey[iPart]+","+str(part)+",")
+            iPart=iPart+1
+        for detector in onlineLumi[lskey]:
+            outFile.write(detector+","+onlineLumi[lskey][detector]+",")
+        outFile.write("\n")
 
-outFile.close()
+    outFile.close()
