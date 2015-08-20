@@ -40,7 +40,8 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
                     if type is not "best":
                         bxname = type+"_BX"
                         onlineLumiDict[lskey][bxname]={}
-                        bxlist = items[10].lstrip().lstrip("[").rstrip().rstrip("]").split()
+                        bxlist = items[10].lstrip().lstrip("[").rstrip().rstrip("]")
+                        bxlist = bxlist.split()
                         for i in range(len(bxlist)):
                             if i%3==0:
                                 onlineLumiDict[lskey][bxname][bxlist[i]]=bxlist[i+1]
