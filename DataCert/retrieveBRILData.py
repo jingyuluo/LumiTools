@@ -12,6 +12,8 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
             cmd.extend(["-r",str(args.run)])
         if args.fill!=0:
             cmd.extend(["-f",str(args.fill)])
+        if args.xing:
+            cmd.extend(["--xing"])
 
     if type is not "best":
         cmd.append("--type="+type)
@@ -34,6 +36,16 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
                     onlineLumiDict[lskey]["PU_best"]=items[8].strip() #PU
                 else:
                     onlineLumiDict[lskey][type]=items[6].strip() #integrated lumi
+                if args.xing:
+                    if type is not "best":
+                        bxname = type+"_BX"
+                        onlineLumiDict[lskey][bxname]={}
+                        bxlist = items[10].lstrip().lstrip("[").rstrip().rstrip("]")
+                        bxlist = bxlist.split()
+                        for i in range(len(bxlist)):
+                            if i%3==0:
+                                onlineLumiDict[lskey][bxname][bxlist[i]]=bxlist[i+1]
+                               
             except:
                 print "Problem with line",line
    
@@ -45,7 +57,7 @@ parser.add_argument('-r', '--run',  type=int, default=0, help="run number")
 parser.add_argument('-j', '--json', type=str, default="", help="JSON formatted file with runs and LSs ranges you desire")
 parser.add_argument('-o', '--overwrite', action='store_true', default=False, help="Overwrite data if it already exists (default False)")
 parser.add_argument('--datadir',    type=str, default="brildata", help="Location to put/retrieve bril data")
-
+parser.add_argument('-x', '--xing', action='store_true', default=False, help="Get the Lumi per BX")
 args = parser.parse_args()
 
     
@@ -128,7 +140,18 @@ for lskey in allKeys:
         outFile.write(keyKey[iPart]+","+str(part)+",")
         iPart=iPart+1
     for detector in onlineLumi[lskey]:
-        outFile.write(detector+","+onlineLumi[lskey][detector]+",")
+        if detector.find("_")==-1:
+            outFile.write(detector+","+onlineLumi[lskey][detector]+",")
+    if args.xing:
+        for type in types:
+            if type=="best": 
+                continue
+            if onlineLumi[lskey].has_key(type+"_BX"):
+                outFile.write(type+"BX,")
+                bxs=onlineLumi[lskey][type+"_BX"].keys()
+                bxs.sort()
+                for bx in bxs:
+                    outFile.write(str(bx)+","+str(onlineLumi[lskey][type+"_BX"][bx])+",")
     outFile.write("\n")
 
 outFile.close()
