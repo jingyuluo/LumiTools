@@ -113,6 +113,7 @@ histBCMFLumi={}
 histPLTLumi={}
 histlayers={}
 PCClayers={}
+layerColors=[616,1,632,600,416]
 histPU={}
 
 bestHF={}
@@ -128,8 +129,9 @@ for ient in range(nentries):
         for layer in range(0,5):
             layerkey=str(tree.run)+"_PCClayer"+str(layer+1)
             if not PCClayers.has_key(layerkey):
-                PCClayers[layerkey]=ROOT.TH1F(str(tree.run)+"_PCClayer"+str(layer+1),";PCC  ;"+yLabelPix,runLSMax[tree.run],0,runLSMax[tree.run])
-                ReStyleHistogram(PCClayers[layerkey],3)
+                PCClayers[layerkey]=ROOT.TH1F(str(tree.run)+"_PCClayer"+str(layer+1),";Luminosity Section  ;PCC Ratios in "+str(tree.run),runLSMax[tree.run],0,runLSMax[tree.run])
+                PCClayers[layerkey].SetLineColor(layerColors[layer])
+                ReStyleHistogram(PCClayers[layerkey],2)
             PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
 
 
@@ -394,14 +396,19 @@ for run in runsToCheck:
         layertexts={}
         lines={}
         stability=ROOT.TCanvas("stability","",1200,700)
-
+        stabLeg=ROOT.TLegend(0.5,0.20,0.9,0.43)
+    
         for layer in range(5):
             key=str(run)+"_PCClayer"+str(layer+1)
             #histlayers[key].Fit(lines[layer],"","",75,175)
+            stabLeg.AddEntry(PCClayers[key],"Layer "+str(layer+1)+" / Layer 2-5","l")
             if layer==0:
                 PCClayers[key].Draw("hist")
+                PCClayers[key].SetMinimum(0.18)
+                PCClayers[key].GetYaxis().SetTitleOffset(0.7)
             else:
                 PCClayers[key].Draw("histsame")
+        stabLeg.Draw("same")
         stability.Update()
         stability.SaveAs(str(run)+"_stability.png")
 
