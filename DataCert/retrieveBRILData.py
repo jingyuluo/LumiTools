@@ -128,20 +128,30 @@ pklFile=open(args.datadir+"/"+pklFileName, 'w')
 pickle.dump(onlineLumi, pklFile)
 pklFile.close()
 
-if not args.xing:
-    outFile=open(args.datadir+"/"+outFileName,"w+")
+outFile=open(args.datadir+"/"+outFileName,"w+")
 
-    allKeys=onlineLumi.keys()
-    allKeys.sort()
+allKeys=onlineLumi.keys()
+allKeys.sort()
 
-    keyKey=["run","ls"]
-    for lskey in allKeys:
-        iPart=0
-        for part in lskey:
-            outFile.write(keyKey[iPart]+","+str(part)+",")
-            iPart=iPart+1
-        for detector in onlineLumi[lskey]:
+keyKey=["run","ls"]
+for lskey in allKeys:
+    iPart=0
+    for part in lskey:
+        outFile.write(keyKey[iPart]+","+str(part)+",")
+        iPart=iPart+1
+    for detector in onlineLumi[lskey]:
+        if detector.find("_")==-1:
             outFile.write(detector+","+onlineLumi[lskey][detector]+",")
-        outFile.write("\n")
+    if args.xing:
+        for type in types:
+            if type=="best": 
+                continue
+            if onlineLumi[lskey].has_key(type+"_BX"):
+                outFile.write(type+"BX,")
+                bxs=onlineLumi[lskey][type+"_BX"].keys()
+                bxs.sort()
+                for bx in bxs:
+                    outFile.write(str(bx)+","+str(onlineLumi[lskey][type+"_BX"][bx])+",")
+    outFile.write("\n")
 
-    outFile.close()
+outFile.close()
