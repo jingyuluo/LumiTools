@@ -164,6 +164,7 @@ if args.pccfile!="":
     maxNBX=0
     for iev in range(nentries):
         tree.GetEntry(iev)
+        print "BXNo", tree.BXNo[0], tree.BXNo[1]
         if iev%1000==0:
             print "iev,",iev
             print "(tree.run,tree.LS)",tree.run,tree.LS
@@ -444,7 +445,7 @@ for key in LSKeys:
                 idxHF=0
                 HFbxkeys = onlineLumi[key]['HFOC_BX'].keys()
                 HFbxkeys.sort()
-                print "HF length", len(HFbxkeys)
+                #print "HF length", len(HFbxkeys)
    
                 for HFbxkey in HFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
                     HFBXid[idxHF] = int(HFbxkey)
@@ -456,7 +457,7 @@ for key in LSKeys:
                 idxPLT=0
                 PLTbxkeys = onlineLumi[key]['PLT_BX'].keys()
                 PLTbxkeys.sort()
-                print len(PLTbxkeys)
+                #print len(PLTbxkeys)
                 for PLTbxkey in PLTbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
                     PLTBXid[idxPLT] = int(PLTbxkey)
                     PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLT_BX'][PLTbxkey])/t_LS
@@ -467,7 +468,7 @@ for key in LSKeys:
                 idxBCMF=0
                 BCMFbxkeys = onlineLumi[key]['BCM1F_BX'].keys()
                 BCMFbxkeys.sort()
-                print len(BCMFbxkeys)
+                #print len(BCMFbxkeys)
                 for BCMFbxkey in BCMFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
                     BCMFBXid[idxBCMF] = int(BCMFbxkey)
                     BCMFLumi_perBX[idxBCMF] = float(onlineLumi[key]['BCM1F_BX'][BCMFbxkey])/t_LS
