@@ -135,7 +135,7 @@ print "Duration: ",endTime-startTime
 maxLS={}
     
 vertexCounts={}
-pixelCounts={}
+PCCsPerLS={}
 lumiEstimate={}
 # key is bx,LS and LS
 
@@ -164,7 +164,6 @@ if args.pccfile!="":
     maxNBX=0
     for iev in range(nentries):
         tree.GetEntry(iev)
-        print "BXNo", tree.BXNo[0], tree.BXNo[1]
         if iev%1000==0:
             print "iev,",iev
             print "(tree.run,tree.LS)",tree.run,tree.LS
@@ -179,22 +178,24 @@ if args.pccfile!="":
             vertexCounts[LSKey]=[]
     
         for ibx,nGoodVtx in tree.nGoodVtx:
-            vertexCounts[LSKey].append([nGoodVtx,tree.BXNo[ibx]])
+            vertexCounts[LSKey].append([nGoodVtx,ibx])
        
+        #for ibx in tree.BXNo:
+        #    print "BXNo", ibx[0], ibx[1]
        
         # 0 is the total count for layers 2-5
         # 1-5 is the count for layre 1-5
         # 6 is the count for per BX
 
-        pixelCount={}
+        PCCsPerEntry={}
         bxids={}
-        if pixelCount.has_key((tree.run,tree.LS)) == 0:
-            pixelCount[(tree.run,tree.LS)]=[0]*6
-            pixelCount[(tree.run,tree.LS)].append({}) # for bx->counts
+        if PCCsPerEntry.has_key((tree.run,tree.LS)) == 0:
+            PCCsPerEntry[(tree.run,tree.LS)]=[0]*6
+            PCCsPerEntry[(tree.run,tree.LS)].append({}) # for bx->counts
        
-        if pixelCounts.has_key((tree.run,tree.LS)) == 0:
-            pixelCounts[(tree.run,tree.LS)]=[[] for x in xrange(6)]
-            pixelCounts[(tree.run,tree.LS)].append({})
+        if PCCsPerLS.has_key((tree.run,tree.LS)) == 0:
+            PCCsPerLS[(tree.run,tree.LS)]=[[] for x in xrange(6)]
+            PCCsPerLS[(tree.run,tree.LS)].append({})
     
         if not maxLS.has_key(tree.run):
             maxLS[tree.run]=0
@@ -217,37 +218,40 @@ if args.pccfile!="":
             if layer==6:
                 layer=1
     
-            pixelCount[(tree.run,tree.LS)][layer]=pixelCount[(tree.run,tree.LS)][layer]+clusters
-            if not pixelCount[(tree.run,tree.LS)][6].has_key(bxid):
-                pixelCount[(tree.run,tree.LS)][6][bxid]=0
+            PCCsPerEntry[(tree.run,tree.LS)][layer]=PCCsPerEntry[(tree.run,tree.LS)][layer]+clusters
+            if not PCCsPerEntry[(tree.run,tree.LS)][6].has_key(bxid):
+                PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=0
     
             if layer!=1:
-                pixelCount[(tree.run,tree.LS)][6][bxid]=pixelCount[(tree.run,tree.LS)][6][bxid]+clusters
-                pixelCount[(tree.run,tree.LS)][0]=pixelCount[(tree.run,tree.LS)][0]+clusters
+                PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]+clusters
+                PCCsPerEntry[(tree.run,tree.LS)][0]=PCCsPerEntry[(tree.run,tree.LS)][0]+clusters
     
-        if bxids.has_key(bxid)==0:
-           bxids[bxid]=1
-        else:
-           bxids[bxid]=bxids[bxid]+1
+            if bxids.has_key(bxid)==0:
+               bxids[bxid]=1
+            else:
+               bxids[bxid]=bxids[bxid]+1
         counter=counter+1
   
         if not args.eventBased: #divide by the sum of events
-            pixelCount[(tree.run,tree.LS)][0]=pixelCount[(tree.run,tree.LS)][0]/float(tree.eventCounter)
+            PCCsPerEntry[(tree.run,tree.LS)][0]=PCCsPerEntry[(tree.run,tree.LS)][0]/float(tree.eventCounter)
             for layer in range(1,6):
-                pixelCount[(tree.run,tree.LS)][layer]=pixelCount[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
+                PCCsPerEntry[(tree.run,tree.LS)][layer]=PCCsPerEntry[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
             for bxid in bxids:
-                pixelCount[(tree.run,tree.LS)][6][bxid]=pixelCount[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
+                print bxid, tree.BXNo[bxid]
+                PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
 
-        pixelCounts[(tree.run,tree.LS)][0].append([pixelCount[(tree.run,tree.LS)][0],1])
+        PCCsPerLS[(tree.run,tree.LS)][0].append([PCCsPerEntry[(tree.run,tree.LS)][0],1])
         for layer in range(1,6):
-            pixelCounts[(tree.run,tree.LS)][layer].append([pixelCount[(tree.run,tree.LS)][layer],1])
+            PCCsPerLS[(tree.run,tree.LS)][layer].append([PCCsPerEntry[(tree.run,tree.LS)][layer],1])
+        print bxids
         for bxid in bxids:
-            if not pixelCounts[(tree.run,tree.LS)][6].has_key(bxid):
-                pixelCounts[(tree.run,tree.LS)][6][bxid]=[]
-            pixelCounts[(tree.run,tree.LS)][6][bxid].append([pixelCount[(tree.run,tree.LS)][6][bxid],1])
+            print bxid, bxids[bxid], PCCsPerEntry[(tree.run,tree.LS)][6][bxid]
+            if not PCCsPerLS[(tree.run,tree.LS)][6].has_key(bxid):
+                PCCsPerLS[(tree.run,tree.LS)][6][bxid]=[]
+            PCCsPerLS[(tree.run,tree.LS)][6][bxid].append([PCCsPerEntry[(tree.run,tree.LS)][6][bxid],1])
 
 
-cmskeys=pixelCounts.keys()
+cmskeys=PCCsPerLS.keys()
 brilkeys=onlineLumi.keys()
 LSKeys=list(set(cmskeys+brilkeys))
 
@@ -261,13 +265,13 @@ else:
 newfile=ROOT.TFile(newfilename,"recreate")
 newtree=ROOT.TTree("certtree","validationtree")
 
-fill= array.array( 'l', [ 0 ] )
-run = array.array( 'l', [ 0 ] )
-LS  = array.array( 'l', [ 0 ] )
-nBX = array.array( 'l', [ 0 ] )
-nBXHF = array.array( 'l', [ 0 ] )
-nBXBCMF = array.array( 'l', [ 0 ] )
-nBXPLT = array.array( 'l', [ 0 ] )
+fill= array.array( 'I', [ 0 ] )
+run = array.array( 'I', [ 0 ] )
+LS  = array.array( 'I', [ 0 ] )
+nBX = array.array( 'I', [ 0 ] )
+nBXHF = array.array( 'I', [ 0 ] )
+nBXBCMF = array.array( 'I', [ 0 ] )
+nBXPLT = array.array( 'I', [ 0 ] )
 
 nCluster    = array.array( 'd', [ 0 ] )
 nClusterError    = array.array( 'd', [ 0 ] )
@@ -279,13 +283,13 @@ PLTLumi   = array.array( 'd', [ 0 ] )
 BestLumi  = array.array( 'd', [ 0 ] )
 BestLumi_PU  = array.array( 'd', [ 0 ] )
 
-HFLumi_perBX = array.array( 'd', 3600*[ 0 ] )
-BCMFLumi_perBX = array.array( 'd', 3600*[ 0 ] )
-PLTLumi_perBX = array.array('d', 3600*[ 0 ] )
+HFLumi_perBX = array.array( 'd', 3600*[ -1 ] )
+BCMFLumi_perBX = array.array( 'd', 3600*[ -1 ] )
+PLTLumi_perBX = array.array('d', 3600*[ -1 ] )
 
-HFBXid = array.array('l', 3600*[ 0 ] )
-BCMFBXid = array.array('l', 3600*[ 0 ] )
-PLTBXid = array.array('l', 3600*[ 0 ] )
+HFBXid = array.array('I', 3600*[ 0 ] )
+BCMFBXid = array.array('I', 3600*[ 0 ] )
+PLTBXid = array.array('I', 3600*[ 0 ] )
 
 HFLumi_integrated    = array.array( 'd', [ 0 ] )
 BCMFLumi_integrated  = array.array( 'd', [ 0 ] )
@@ -309,7 +313,7 @@ PC_xsec         = array.array( 'd', [ 0 ] )
 PC_xsec_layers  = array.array( 'd', 5*[ 0 ] )
 
 nPCPerBXid  = array.array( 'd', 3600*[ 0 ] )
-BXid        = array.array( 'd', 3600*[ 0 ] )
+PCBXid        = array.array( 'I', 3600*[ 0 ] )
 
 goodVertices  = array.array( 'd', [ 0 ] )
 goodVertices_xsec  = array.array( 'd', [ 0 ] )
@@ -342,7 +346,7 @@ newtree.Branch("PC_lumi_B3p8_perBX", PC_lumi_B3p8_perBX, "PC_lumi_B3p8_perBX[nBX
 newtree.Branch("PC_xsec",PC_xsec,"PC_xsec/D")
 newtree.Branch("PC_xsec_layers",PC_xsec_layers,"PC_xsec_layers[5]/D")
 
-newtree.Branch("BXid",BXid,"BXid[nBX]/I")
+newtree.Branch("PCBXid",PCBXid,"PCBXid[nBX]/I")
 newtree.Branch("nPCPerBXid",nPCPerBXid,"nPCPerBXid[nBX]/D")
 
 newtree.Branch("BestLumi",BestLumi,"BestLumi/D")
@@ -447,7 +451,7 @@ for key in LSKeys:
                 HFbxkeys.sort()
                 #print "HF length", len(HFbxkeys)
    
-                for HFbxkey in HFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                for HFbxkey in HFbxkeys :
                     HFBXid[idxHF] = int(HFbxkey)
                     HFLumi_perBX[idxHF] = float(onlineLumi[key]['HFOC_BX'][HFbxkey])/t_LS
                     idxHF = idxHF+1
@@ -457,8 +461,8 @@ for key in LSKeys:
                 idxPLT=0
                 PLTbxkeys = onlineLumi[key]['PLT_BX'].keys()
                 PLTbxkeys.sort()
-                #print len(PLTbxkeys)
-                for PLTbxkey in PLTbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                print PLTbxkeys
+                for PLTbxkey in PLTbxkeys :
                     PLTBXid[idxPLT] = int(PLTbxkey)
                     PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLT_BX'][PLTbxkey])/t_LS
                     idxPLT = idxPLT+1
@@ -469,13 +473,11 @@ for key in LSKeys:
                 BCMFbxkeys = onlineLumi[key]['BCM1F_BX'].keys()
                 BCMFbxkeys.sort()
                 #print len(BCMFbxkeys)
-                for BCMFbxkey in BCMFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                for BCMFbxkey in BCMFbxkeys :
                     BCMFBXid[idxBCMF] = int(BCMFbxkey)
                     BCMFLumi_perBX[idxBCMF] = float(onlineLumi[key]['BCM1F_BX'][BCMFbxkey])/t_LS
                     idxBCMF = idxBCMF+1
                
-            print "Success!"                   
-                        
                 
         except:
             print "Failed in brilkey",key#,onlineLumi[key]
@@ -489,7 +491,7 @@ for key in LSKeys:
             goodVertices[0]=mean
             nBX[0]=len(tree.BXNo)
             
-            for PCCs in pixelCounts[key]:
+            for PCCs in PCCsPerLS[key]:
                 if count==0:
                     mean,error=GetMeanAndMeanError(PCCs)
                     nCluster[0]=mean
@@ -499,10 +501,13 @@ for key in LSKeys:
                     nPCPerLayer[count-1]=mean
                 else:
                     ibx=0
-                    for bxid in PCCs:
-                        print bxid, ibx
+                    bxids=PCCs.keys()
+                    bxids.sort()
+                    print bxids
+                    for bxid in bxids:
                         mean,error=GetMeanAndMeanError(PCCs[bxid])
-                        BXid[ibx]=bxid
+                        print ibx,bxid
+                        PCBXid[ibx]=bxid
                         nPCPerBXid[ibx]=mean
                         totalPCperBX=mean*math.pow(2,18)
                         PC_lumi_B0_perBX[ibx]=totalPCperBX/PC_calib_xsec["B0"]/t_LS
