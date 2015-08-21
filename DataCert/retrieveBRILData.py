@@ -44,7 +44,11 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
                         bxlist = bxlist.split()
                         for i in range(len(bxlist)):
                             if i%3==0:
-                                onlineLumiDict[lskey][bxname][bxlist[i]]=bxlist[i+1]
+                                try:
+                                    onlineLumiDict[lskey][bxname][int(bxlist[i])]=float(bxlist[i+1])
+                                except: 
+                                    print lskey,type,"bx",bxlist[i],"can't be integer"
+                                    print "or lumi",bxlist[i+1],"can't be float"
                                
             except:
                 print "Problem with line",line
