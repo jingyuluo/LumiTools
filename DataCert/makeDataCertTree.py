@@ -179,8 +179,12 @@ if args.pccfile!="":
     
         for ibx,nGoodVtx in tree.nGoodVtx:
             vertexCounts[LSKey].append([nGoodVtx,tree.BXNo[ibx]])
-        
-    
+       
+       
+        # 0 is the total count for layers 2-5
+        # 1-5 is the count for layre 1-5
+        # 6 is the count for per BX
+
         pixelCount={}
         bxids={}
         if pixelCount.has_key((tree.run,tree.LS)) == 0:
@@ -260,6 +264,10 @@ fill= array.array( 'l', [ 0 ] )
 run = array.array( 'l', [ 0 ] )
 LS  = array.array( 'l', [ 0 ] )
 nBX = array.array( 'l', [ 0 ] )
+nBXHF = array.array( 'l', [ 0 ] )
+nBXBCMF = array.array( 'l', [ 0 ] )
+nBXPLT = array.array( 'l', [ 0 ] )
+
 nCluster    = array.array( 'd', [ 0 ] )
 nClusterError    = array.array( 'd', [ 0 ] )
 nPCPerLayer = array.array( 'd', 5*[ 0 ] )
@@ -269,6 +277,14 @@ BCMFLumi  = array.array( 'd', [ 0 ] )
 PLTLumi   = array.array( 'd', [ 0 ] )
 BestLumi  = array.array( 'd', [ 0 ] )
 BestLumi_PU  = array.array( 'd', [ 0 ] )
+
+HFLumi_perBX = array.array( 'd', 3600*[ 0 ] )
+BCMFLumi_perBX = array.array( 'd', 3600*[ 0 ] )
+PLTLumi_perBX = array.array('d', 3600*[ 0 ] )
+
+HFBXid = array.array('l', 3600*[ 0 ] )
+BCMFBXid = array.array('l', 3600*[ 0 ] )
+PLTBXid = array.array('l', 3600*[ 0 ] )
 
 HFLumi_integrated    = array.array( 'd', [ 0 ] )
 BCMFLumi_integrated  = array.array( 'd', [ 0 ] )
@@ -284,6 +300,9 @@ PC_lumi_integrated_B0      = array.array( 'd', [ 0 ] )
 PC_lumi_integrated_B3p8    = array.array( 'd', [ 0 ] )
 PC_lumi_integrated_error_B0      = array.array( 'd', [ 0 ] )
 PC_lumi_integrated_error_B3p8    = array.array( 'd', [ 0 ] )
+
+PC_lumi_B0_perBX  = array.array('d', 3600*[ 0 ])
+PC_lumi_B3p8_perBX = array.array('d', 3600*[ 0 ])
 
 PC_xsec         = array.array( 'd', [ 0 ] )
 PC_xsec_layers  = array.array( 'd', 5*[ 0 ] )
@@ -301,6 +320,10 @@ newtree.Branch("fill",fill,"fill/I")
 newtree.Branch("run",run,"run/I")
 newtree.Branch("LS",LS,"LS/I")
 newtree.Branch("nBX",nBX,"nBX/I")
+newtree.Branch("nBXHF", nBXHF, "nBXHF/I")
+newtree.Branch("nBXBCMF", nBXBCMF, "nBXBCMF/I")
+newtree.Branch("nBXPLT", nBXPLT, "nBXPLT/I")
+
 newtree.Branch("nCluster",nCluster,"nCluster/D")
 newtree.Branch("nClusterError",nClusterError,"nClusterError/D")
 newtree.Branch("nPCPerLayer",nPCPerLayer,"nPCPerLayer[5]/D")
@@ -312,16 +335,27 @@ newtree.Branch("PC_lumi_integrated_B3p8",PC_lumi_integrated_B3p8,"PC_lumi_integr
 newtree.Branch("PC_lumi_integrated_error_B0",PC_lumi_integrated_error_B0,"PC_lumi_integrated_error_B0/D")
 newtree.Branch("PC_lumi_integrated_error_B3p8",PC_lumi_integrated_error_B3p8,"PC_lumi_integrated_error_B3p8/D")
 
+newtree.Branch("PC_lumi_B0_perBX", PC_lumi_B0_perBX, "PC_lumi_B0_perBX[nBX]/D")
+newtree.Branch("PC_lumi_B3p8_perBX", PC_lumi_B3p8_perBX, "PC_lumi_B3p8_perBX[nBX]/D")
+
 newtree.Branch("PC_xsec",PC_xsec,"PC_xsec/D")
 newtree.Branch("PC_xsec_layers",PC_xsec_layers,"PC_xsec_layers[5]/D")
 
-newtree.Branch("BXid",BXid,"BXid[nBX]/D")
+newtree.Branch("BXid",BXid,"BXid[nBX]/I")
 newtree.Branch("nPCPerBXid",nPCPerBXid,"nPCPerBXid[nBX]/D")
 
 newtree.Branch("BestLumi",BestLumi,"BestLumi/D")
 newtree.Branch("HFLumi",HFLumi,"HFLumi/D")
 newtree.Branch("BCMFLumi",BCMFLumi,"BCMFLumi/D")
 newtree.Branch("PLTLumi",PLTLumi,"PLTLumi/D")
+
+newtree.Branch("HFLumi_perBX", HFLumi_perBX, "HFLumi_perBX[nBXHF]/D")
+newtree.Branch("BCMFLumi_perBX", BCMFLumi_perBX, "BCMFLumi_perBX[nBXBCMF]/D")
+newtree.Branch("PLTLumi_perBX", PLTLumi_perBX, "PLTLumi_perBX[nBXPLT]/D")
+
+newtree.Branch("HFBXid", HFBXid, "HFBXid[nBXHF]/I")
+newtree.Branch("BCMFBXid", BCMFBXid, "BCMFBXid[nBXBCMF]/I")
+newtree.Branch("PLTBXid", PLTBXid, "PLTBXid[nBXPLT]/I")
 
 newtree.Branch("BestLumi_integrated",BestLumi_integrated,"BestLumi_integrated/D")
 newtree.Branch("HFLumi_integrated",HFLumi_integrated,"HFLumi_integrated/D")
@@ -404,8 +438,46 @@ for key in LSKeys:
                 BCMFLumi[0]=BCMFLumi_integrated[0]
                 if BCMFLumi[0]>0:
                     BCMFLumi[0]=BCMFLumi[0]/t_LS
+
+            if onlineLumi[key].has_key('HFOC_BX'):
+                nBXHF[0] = len(onlineLumi[key]['HFOC_BX'])
+                idxHF=0
+                HFbxkeys = onlineLumi[key]['HFOC_BX'].keys()
+                HFbxkeys.sort()
+                print "HF length", len(HFbxkeys)
+   
+                for HFbxkey in HFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                    HFBXid[idxHF] = int(HFbxkey)
+                    HFLumi_perBX[idxHF] = float(onlineLumi[key]['HFOC_BX'][HFbxkey])/t_LS
+                    idxHF = idxHF+1
+
+            if onlineLumi[key].has_key('PLT_BX'):
+                nBXPLT[0] = len(onlineLumi[key]['PLT_BX'])
+                idxPLT=0
+                PLTbxkeys = onlineLumi[key]['PLT_BX'].keys()
+                PLTbxkeys.sort()
+                print len(PLTbxkeys)
+                for PLTbxkey in PLTbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                    PLTBXid[idxPLT] = int(PLTbxkey)
+                    PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLT_BX'][PLTbxkey])/t_LS
+                    idxPLT = idxPLT+1
+        
+            if onlineLumi[key].has_key('BCM1F_BX'):
+                nBXBCMF[0] = len(onlineLumi[key]['BCM1F_BX'])
+                idxBCMF=0
+                BCMFbxkeys = onlineLumi[key]['BCM1F_BX'].keys()
+                BCMFbxkeys.sort()
+                print len(BCMFbxkeys)
+                for BCMFbxkey in BCMFbxkeys :#onlineLumi[key]['HFOC_BX'].keys():
+                    BCMFBXid[idxBCMF] = int(BCMFbxkey)
+                    BCMFLumi_perBX[idxBCMF] = float(onlineLumi[key]['BCM1F_BX'][BCMFbxkey])/t_LS
+                    idxBCMF = idxBCMF+1
+               
+            print "Success!"                   
+                        
+                
         except:
-            print "Failed in brilkey",key,onlineLumi[key]
+            print "Failed in brilkey",key#,onlineLumi[key]
 
     if key in cmskeys:
         try:
@@ -427,9 +499,14 @@ for key in LSKeys:
                 else:
                     ibx=0
                     for bxid in PCCs:
+                        print bxid, ibx
                         mean,error=GetMeanAndMeanError(PCCs[bxid])
                         BXid[ibx]=bxid
                         nPCPerBXid[ibx]=mean
+                        totalPCperBX=mean*math.pow(2,18)
+                        PC_lumi_B0_perBX[ibx]=totalPCperBX/PC_calib_xsec["B0"]/t_LS
+                        PC_lumi_B3p8_perBX[ibx]=totalPCperBX/PC_calib_xsec["B3p8"]/t_LS
+
                         ibx=ibx+1
                         if ibx>nBX[0]:
                             print "ibx,nBX[0],",ibx,nBX[0],", but WHY?!!!"
@@ -449,7 +526,6 @@ for key in LSKeys:
         except:
             print "Failed in cmskey",key
             
- 
     if hasCMSData[0] and hasBrilData[0]: 
         try:
             PC_xsec[0]=nCluster[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
@@ -467,9 +543,8 @@ for key in LSKeys:
     if args.isBatch is True:
         if hasCMSData[0] and hasBrilData[0]: 
             newtree.Fill()
-    else:        
+    else:       
         newtree.Fill()
-
 
 newfile.Write()
 newfile.Close()
