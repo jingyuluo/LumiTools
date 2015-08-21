@@ -188,7 +188,7 @@ if args.pccfile!="":
         # 6 is the count for per BX
 
         PCCsPerEntry={}
-        bxids={}
+        bxids=[]
         if PCCsPerEntry.has_key((tree.run,tree.LS)) == 0:
             PCCsPerEntry[(tree.run,tree.LS)]=[0]*6
             PCCsPerEntry[(tree.run,tree.LS)].append({}) # for bx->counts
@@ -226,10 +226,8 @@ if args.pccfile!="":
                 PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]+clusters
                 PCCsPerEntry[(tree.run,tree.LS)][0]=PCCsPerEntry[(tree.run,tree.LS)][0]+clusters
     
-            if bxids.has_key(bxid)==0:
-               bxids[bxid]=1
-            else:
-               bxids[bxid]=bxids[bxid]+1
+            if bxid not in bxids:
+               bxids.append(bxid)
         counter=counter+1
   
         if not args.eventBased: #divide by the sum of events
@@ -237,15 +235,12 @@ if args.pccfile!="":
             for layer in range(1,6):
                 PCCsPerEntry[(tree.run,tree.LS)][layer]=PCCsPerEntry[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
             for bxid in bxids:
-                print bxid, tree.BXNo[bxid]
                 PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
 
         PCCsPerLS[(tree.run,tree.LS)][0].append([PCCsPerEntry[(tree.run,tree.LS)][0],1])
         for layer in range(1,6):
             PCCsPerLS[(tree.run,tree.LS)][layer].append([PCCsPerEntry[(tree.run,tree.LS)][layer],1])
-        print bxids
         for bxid in bxids:
-            print bxid, bxids[bxid], PCCsPerEntry[(tree.run,tree.LS)][6][bxid]
             if not PCCsPerLS[(tree.run,tree.LS)][6].has_key(bxid):
                 PCCsPerLS[(tree.run,tree.LS)][6][bxid]=[]
             PCCsPerLS[(tree.run,tree.LS)][6][bxid].append([PCCsPerEntry[(tree.run,tree.LS)][6][bxid],1])
@@ -461,7 +456,7 @@ for key in LSKeys:
                 idxPLT=0
                 PLTbxkeys = onlineLumi[key]['PLT_BX'].keys()
                 PLTbxkeys.sort()
-                print PLTbxkeys
+                #print PLTbxkeys
                 for PLTbxkey in PLTbxkeys :
                     PLTBXid[idxPLT] = int(PLTbxkey)
                     PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLT_BX'][PLTbxkey])/t_LS
@@ -503,10 +498,10 @@ for key in LSKeys:
                     ibx=0
                     bxids=PCCs.keys()
                     bxids.sort()
-                    print bxids
+                    #print bxids
                     for bxid in bxids:
                         mean,error=GetMeanAndMeanError(PCCs[bxid])
-                        print ibx,bxid
+                        #print ibx,bxid
                         PCBXid[ibx]=bxid
                         nPCPerBXid[ibx]=mean
                         totalPCperBX=mean*math.pow(2,18)
