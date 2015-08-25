@@ -11,6 +11,7 @@ parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill numb
 parser.add_argument("-s",  "--sub", action='store_true', default=False, help="bsub created jobs")
 parser.add_argument("--pkldir", type=str, default="../brildata", help="Path to BRIL pickle files.")
 parser.add_argument("-q", "--queue", type=str, default="8nh", help="lxbatch queue (default:  8nh)")
+parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting")
 
 args=parser.parse_args()
 
@@ -20,7 +21,11 @@ def MakeJob(outputdir,jobid,filename,minfill):
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
     joblines.append("cd "+outputdir)
     joblines.append("cmsenv")
-    joblines.append("python ../makeDataCertTree.py --pccfile="+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill))
+    makeDataCMD="python ../makeDataCertTree.py --pccfile="+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill)
+    if not args.includeVertices:
+        makeDataCMD=makeDataCMD+" -v"
+    
+    joblines.append(makeDataCMD)
     
     scriptFile=open(outputdir+"/job_"+str(jobid)+".sh","w+")
     for line in joblines:

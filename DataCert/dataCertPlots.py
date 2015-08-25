@@ -1,6 +1,7 @@
 import ROOT
 import sys
 import math
+import numpy
 import argparse
 
 
@@ -24,6 +25,22 @@ def GetMaximum(histList,scale=1.0):
 
     return listMax*scale
 
+
+def GetYAverage(hist,zeroSupress=True):
+    try:
+        binsToAve=[]
+        for ibin in range(1,hist.GetNbinsX()+1):
+            if hist.GetBinContent(ibin)>0:
+                binsToAve.append(hist.GetBinContent(ibin))
+
+        mean=numpy.mean(binsToAve)
+        std=numpy.std(binsToAve)
+        meanError=std/math.sqrt(len(binsToAve))
+        return mean,meanError
+
+    except:
+        print "Failed to get the average for",hist.GetName()
+        return -999,-999
 
 
 parser = argparse.ArgumentParser(description='Make data certifcation plots')
@@ -400,8 +417,8 @@ for run in runsToCheck:
     
         for layer in range(5):
             key=str(run)+"_PCClayer"+str(layer+1)
-            #histlayers[key].Fit(lines[layer],"","",75,175)
-            stabLeg.AddEntry(PCClayers[key],"Layer "+str(layer+1)+" / Layer 2-5","l")
+            mean,meanError=GetYAverage(PCClayers[key],True)
+            stabLeg.AddEntry(PCClayers[key],"Layer "+str(layer+1)+" / Layer 2-5   "+"{:10.4f}".format(mean)+" #pm "+"{:10.4f}".format(meanError),"l")
             if layer==0:
                 PCClayers[key].Draw("hist")
                 PCClayers[key].SetMinimum(0.18)
