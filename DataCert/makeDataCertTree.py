@@ -14,7 +14,8 @@ parser.add_argument('--nobril', type=bool, default=False, help="Don\'t process b
 parser.add_argument('-l','--label',type=str,default="",  help="Label for output file")
 parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
 parser.add_argument('--minrun',  type=int, default=230000,help="Minimum run number")
-parser.add_argument('-b', '--isBatch', default=False, action="store_true", help="Maximum fill number")
+parser.add_argument('-b', '--isBatch', default=False, action="store_true", help="Doesn't pop up plots and only fills tree when CMS and BRIL data are present")
+parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting (default true)")
 parser.add_argument('--eventBased', default=False, action="store_true", help="PCC ntuples are event based (default false--typically LS-based)")
 
 args = parser.parse_args()
@@ -150,7 +151,8 @@ if args.pccfile!="":
     tree=tfile.Get("lumi/tree")
     
     tree.SetBranchStatus("*",0)
-    tree.SetBranchStatus("nGoodVtx*",1)
+    if args.includeVertices:
+        tree.SetBranchStatus("nGoodVtx*",1)
     tree.SetBranchStatus("run*",1)
     tree.SetBranchStatus("LS*",1)
     tree.SetBranchStatus("event*",1)
@@ -159,9 +161,9 @@ if args.pccfile!="":
     tree.SetBranchStatus("BXNo",1)
 
     nentries=tree.GetEntries()
-    
+   
+    nentries=1
     print nentries
-    maxNBX=0
     for iev in range(nentries):
         tree.GetEntry(iev)
         if iev%1000==0:
@@ -177,8 +179,9 @@ if args.pccfile!="":
         if LSKey not in vertexCounts:
             vertexCounts[LSKey]=[]
     
-        for ibx,nGoodVtx in tree.nGoodVtx:
-            vertexCounts[LSKey].append([nGoodVtx,ibx])
+        if args.includeVertices:
+            for ibx,nGoodVtx in tree.nGoodVtx:
+                vertexCounts[LSKey].append([nGoodVtx,ibx])
        
         #for ibx in tree.BXNo:
         #    print "BXNo", ibx[0], ibx[1]
@@ -236,6 +239,7 @@ if args.pccfile!="":
                 PCCsPerEntry[(tree.run,tree.LS)][layer]=PCCsPerEntry[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
             for bxid in bxids:
                 PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
+        print PCCsPerEntry[(tree.run,tree.LS)]
 
         PCCsPerLS[(tree.run,tree.LS)][0].append([PCCsPerEntry[(tree.run,tree.LS)][0],1])
         for layer in range(1,6):
