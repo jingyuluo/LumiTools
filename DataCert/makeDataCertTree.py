@@ -162,8 +162,6 @@ if args.pccfile!="":
 
     nentries=tree.GetEntries()
    
-    nentries=1
-    print nentries
     for iev in range(nentries):
         tree.GetEntry(iev)
         if iev%1000==0:
