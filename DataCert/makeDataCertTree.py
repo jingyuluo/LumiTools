@@ -39,6 +39,7 @@ def is_number(s):
 
 weightThreshold=1e-5
 
+# the value is already summed over weight
 def AverageWithWeight(list):
     sumValue=0
     sumWeight=0
@@ -110,6 +111,7 @@ def GetMeanAndMeanError(list):
 
 startTime=time.time()
 onlineLumi={} #(fill,run,LS)
+runInfo={}
 
 if not args.nobril:
     files=os.listdir(args.pkldir)
@@ -120,6 +122,11 @@ if not args.nobril:
                 filePath=args.pkldir+"/"+fileName
                 pklFile=open(filePath,'rb')
                 data=pickle.load(pklFile)
+                if data.has_key("runInfo"):
+                    for runInfoKey in data["runInfo"]:
+                        if not runInfo.has_key(runInfoKey):
+                            runInfo[runInfoKey]={}
+                        runInfo[runInfoKey].update(data["runInfo"][runInfoKey])
                 onlineLumi.update(data)
                 pklFile.close()
             except:
@@ -132,10 +139,10 @@ if not args.nobril:
 endTime=time.time()
 print "Duration: ",endTime-startTime
 
-
 maxLS={}
     
-vertexCounts={}
+goodVertexCounts={}
+validVertexCounts={}
 PCCsPerLS={}
 lumiEstimate={}
 # key is bx,LS and LS
@@ -153,6 +160,7 @@ if args.pccfile!="":
     tree.SetBranchStatus("*",0)
     if args.includeVertices:
         tree.SetBranchStatus("nGoodVtx*",1)
+        tree.SetBranchStatus("nValidVtx*",1)
     tree.SetBranchStatus("run*",1)
     tree.SetBranchStatus("LS*",1)
     tree.SetBranchStatus("event*",1)
@@ -161,7 +169,7 @@ if args.pccfile!="":
     tree.SetBranchStatus("BXNo",1)
 
     nentries=tree.GetEntries()
-   
+  
     for iev in range(nentries):
         tree.GetEntry(iev)
         if iev%1000==0:
@@ -174,12 +182,24 @@ if args.pccfile!="":
         
         LSKey=(tree.run,tree.LS)
         
-        if LSKey not in vertexCounts:
-            vertexCounts[LSKey]=[]
-    
         if args.includeVertices:
+            if LSKey not in goodVertexCounts:
+                goodVertexCounts[LSKey]=[]
+                goodVertexCounts[LSKey].append([])
+                goodVertexCounts[LSKey].append({})
+                validVertexCounts[LSKey]=[]
+                validVertexCounts[LSKey].append([])
+                validVertexCounts[LSKey].append({})
+                for bx,counts in tree.BXNo:
+                    goodVertexCounts[LSKey][1][bx]=[]
+                    validVertexCounts[LSKey][1][bx]=[]
+    
             for ibx,nGoodVtx in tree.nGoodVtx:
-                vertexCounts[LSKey].append([nGoodVtx,ibx])
+                goodVertexCounts[LSKey][0].append([nGoodVtx,tree.BXNo[ibx]])
+                goodVertexCounts[LSKey][1][ibx].append([nGoodVtx,tree.BXNo[ibx]])
+            for ibx,nValidVtx in tree.nValidVtx:
+                validVertexCounts[LSKey][0].append([nValidVtx,tree.BXNo[ibx]])
+                validVertexCounts[LSKey][1][ibx].append([nValidVtx,tree.BXNo[ibx]])
        
         #for ibx in tree.BXNo:
         #    print "BXNo", ibx[0], ibx[1]
@@ -237,7 +257,6 @@ if args.pccfile!="":
                 PCCsPerEntry[(tree.run,tree.LS)][layer]=PCCsPerEntry[(tree.run,tree.LS)][layer]/float(tree.eventCounter)
             for bxid in bxids:
                 PCCsPerEntry[(tree.run,tree.LS)][6][bxid]=PCCsPerEntry[(tree.run,tree.LS)][6][bxid]/float(tree.BXNo[bxid])
-        print PCCsPerEntry[(tree.run,tree.LS)]
 
         PCCsPerLS[(tree.run,tree.LS)][0].append([PCCsPerEntry[(tree.run,tree.LS)][0],1])
         for layer in range(1,6):
@@ -250,14 +269,19 @@ if args.pccfile!="":
 
 cmskeys=PCCsPerLS.keys()
 brilkeys=onlineLumi.keys()
+if "runInfo" in brilkeys:
+    brilkeys.remove("runInfo")
+
+
 LSKeys=list(set(cmskeys+brilkeys))
+# if batch only look at keys in both
+if args.isBatch is True:
+    LSKeys=list(set(cmskeys).intersection(brilkeys))
+    
 
 LSKeys.sort()
 
-if LSKeys[0][0]==123456:
-    newfilename="dataCertification_"+str(LSKeys[1][0])+"_"+str(LSKeys[-1][0])+"_"+args.label+".root"
-else:
-    newfilename="dataCertification_"+str(LSKeys[0][0])+"_"+str(LSKeys[-1][0])+"_"+args.label+".root"
+newfilename="dataCertification_"+str(LSKeys[0][0])+"_"+str(LSKeys[-1][0])+"_"+args.label+".root"
     
 newfile=ROOT.TFile(newfilename,"recreate")
 newtree=ROOT.TTree("certtree","validationtree")
@@ -266,6 +290,7 @@ fill= array.array( 'I', [ 0 ] )
 run = array.array( 'I', [ 0 ] )
 LS  = array.array( 'I', [ 0 ] )
 nBX = array.array( 'I', [ 0 ] )
+nActiveBX = array.array( 'I', [ 0 ] )
 nBXHF = array.array( 'I', [ 0 ] )
 nBXBCMF = array.array( 'I', [ 0 ] )
 nBXPLT = array.array( 'I', [ 0 ] )
@@ -279,6 +304,7 @@ BCMFLumi  = array.array( 'd', [ 0 ] )
 PLTLumi   = array.array( 'd', [ 0 ] )
 BestLumi  = array.array( 'd', [ 0 ] )
 BestLumi_PU  = array.array( 'd', [ 0 ] )
+PC_PU  = array.array( 'd', [ 0 ] )
 
 HFLumi_perBX = array.array( 'd', 3600*[ -1 ] )
 BCMFLumi_perBX = array.array( 'd', 3600*[ -1 ] )
@@ -315,12 +341,25 @@ PCBXid        = array.array( 'I', 3600*[ 0 ] )
 goodVertices  = array.array( 'd', [ 0 ] )
 goodVertices_xsec  = array.array( 'd', [ 0 ] )
 goodVertices_eff  = array.array( 'd', [ 0 ] )
-# 0 - average vertices; 1 - xsec; 2 - vertex efficiency
+
+goodVertices_perBX  = array.array( 'd', 3600*[ 0 ] )
+goodVertices_perBX_xsec  = array.array( 'd', 3600*[ 0 ] )
+goodVertices_perBX_eff  = array.array( 'd', 3600*[ 0 ] )
+
+validVertices  = array.array( 'd', [ 0 ] )
+validVertices_xsec  = array.array( 'd', [ 0 ] )
+validVertices_eff  = array.array( 'd', [ 0 ] )
+
+validVertices_perBX  = array.array( 'd', 3600*[ 0 ] )
+validVertices_perBX_xsec  = array.array( 'd', 3600*[ 0 ] )
+validVertices_perBX_eff  = array.array( 'd', 3600*[ 0 ] )
+
 
 
 newtree.Branch("fill",fill,"fill/I")
 newtree.Branch("run",run,"run/I")
 newtree.Branch("LS",LS,"LS/I")
+newtree.Branch("nActiveBX",nActiveBX,"nActiveBX/I")
 newtree.Branch("nBX",nBX,"nBX/I")
 newtree.Branch("nBXHF", nBXHF, "nBXHF/I")
 newtree.Branch("nBXBCMF", nBXBCMF, "nBXBCMF/I")
@@ -365,6 +404,7 @@ newtree.Branch("BCMFLumi_integrated",BCMFLumi_integrated,"BCMFLumi_integrated/D"
 newtree.Branch("PLTLumi_integrated",PLTLumi_integrated,"PLTLumi_integrated/D")
 
 newtree.Branch("BestLumi_PU",BestLumi_PU,"BestLumi_PU/D")
+newtree.Branch("PC_PU",PC_PU,"PC_PU/D")
 
 newtree.Branch("hasBrilData",hasBrilData,"hasBrilData/O")
 newtree.Branch("hasCMSData",hasCMSData,"hasCMSData/O")
@@ -372,19 +412,33 @@ newtree.Branch("hasCMSData",hasCMSData,"hasCMSData/O")
 newtree.Branch("goodVertices",      goodVertices,     "goodVertices/D")
 newtree.Branch("goodVertices_xsec", goodVertices_xsec,"goodVertices_xsec/D")
 newtree.Branch("goodVertices_eff",  goodVertices_eff, "goodVertices_eff/D")
+newtree.Branch("goodVertices_perBX",      goodVertices_perBX,     "goodVertices_perBX[nBX]/D")
+newtree.Branch("goodVertices_perBX_xsec", goodVertices_perBX_xsec,"goodVertices_perBX_xsec[nBX]/D")
+newtree.Branch("goodVertices_perBX_eff",  goodVertices_perBX_eff, "goodVertices_perBX_eff[nBX]/D")
+
+newtree.Branch("validVertices",      validVertices,     "validVertices/D")
+newtree.Branch("validVertices_xsec", validVertices_xsec,"validVertices_xsec/D")
+newtree.Branch("validVertices_eff",  validVertices_eff, "validVertices_eff/D")
+newtree.Branch("validVertices_perBX",      validVertices_perBX,     "validVertices_perBX[nBX]/D")
+newtree.Branch("validVertices_perBX_xsec", validVertices_perBX_xsec,"validVertices_perBX_xsec[nBX]/D")
+newtree.Branch("validVertices_perBX_eff",  validVertices_perBX_eff, "validVertices_perBX_eff[nBX]/D")
 
 
 PC_calib_xsec={}
-PC_calib_xsec["B0"]=7.4e6
-PC_calib_xsec["B3p8"]=8.6e6
-
+PC_calib_xsec["B0"]=9.4e6
+PC_calib_xsec["B3p8"]=9.4e6
 
 hists={}
-PCCPerLayer=[118.,44.3,39.2,34.9,22.3,23.9]
+PCCPerLayer=[118.,44.3,39.2,34.9,22.3,23.9] #from MC
 for key in LSKeys:
     run[0]=key[0]
     LS[0]=key[1]
-    #print key
+
+    if runInfo.has_key("nActiveBXHF"):
+        if runInfo["nActiveBXHF"].has_key(run[0]):
+            nActiveBX[0]=int(runInfo["nActiveBXHF"][run[0]])
+
+
     hasBrilData[0]=False
     hasCMSData[0]=False
     
@@ -399,6 +453,7 @@ for key in LSKeys:
     BCMFLumi_integrated[0]=-1
         
     BestLumi_PU[0]=-1
+    PC_PU[0]=-1
     PC_xsec[0]=-1
 
     PC_lumi_B0[0]=-1
@@ -411,6 +466,10 @@ for key in LSKeys:
     goodVertices[0]=-1
     goodVertices_xsec[0]=-1
     goodVertices_eff[0]=-1
+
+    validVertices[0]=-1
+    validVertices_xsec[0]=-1
+    validVertices_eff[0]=-1
 
     for layer in range(0,5):
         PC_xsec_layers[layer]=-1
@@ -430,8 +489,8 @@ for key in LSKeys:
                 HFLumi[0]=HFLumi_integrated[0]
                 if HFLumi[0]>0:
                     HFLumi[0]=HFLumi[0]/t_LS
-            if onlineLumi[key].has_key('PLT'):
-                PLTLumi_integrated[0]=float(onlineLumi[key]['PLT'])
+            if onlineLumi[key].has_key('PLTZERO'):
+                PLTLumi_integrated[0]=float(onlineLumi[key]['PLTZERO'])
                 PLTLumi[0]=PLTLumi_integrated[0]
                 if PLTLumi[0]>0:
                     PLTLumi[0]=PLTLumi[0]/t_LS
@@ -447,11 +506,11 @@ for key in LSKeys:
                 HFbxkeys = onlineLumi[key]['HFOC_BX'].keys()
                 HFbxkeys.sort()
                 #print "HF length", len(HFbxkeys)
-   
                 for HFbxkey in HFbxkeys :
                     HFBXid[idxHF] = int(HFbxkey)
                     HFLumi_perBX[idxHF] = float(onlineLumi[key]['HFOC_BX'][HFbxkey])/t_LS
                     idxHF = idxHF+1
+                    
 
             if onlineLumi[key].has_key('PLT_BX'):
                 nBXPLT[0] = len(onlineLumi[key]['PLT_BX'])
@@ -482,12 +541,20 @@ for key in LSKeys:
     if key in cmskeys:
         try:
             hasCMSData[0]=True
-            count=0
-            mean=AverageWithWeight(vertexCounts[key])
-            #print mean
-            goodVertices[0]=mean
             nBX[0]=len(tree.BXNo)
-            
+            count=0
+            if args.includeVertices:
+                goodVertices[0]=AverageWithWeight(goodVertexCounts[key][0])
+                validVertices[0]=AverageWithWeight(validVertexCounts[key][0])
+                bxids=goodVertexCounts[key][1].keys()
+                bxids.sort()
+                
+                ibx=0
+                for bxid in bxids:
+                    goodVertices_perBX[ibx]=AverageWithWeight(goodVertexCounts[key][1][bxid])
+                    validVertices_perBX[ibx]=AverageWithWeight(validVertexCounts[key][1][bxid])
+                    ibx=ibx+1
+
             for PCCs in PCCsPerLS[key]:
                 if count==0:
                     mean,error=GetMeanAndMeanError(PCCs)
@@ -516,8 +583,8 @@ for key in LSKeys:
 
                 count=count+1 
             
-            totalPC=nCluster[0]*math.pow(2,18)*nBX[0]
-            totalPCError=nClusterError[0]*math.pow(2,18)*nBX[0]
+            totalPC=nCluster[0]*math.pow(2,18)*nActiveBX[0]
+            totalPCError=nClusterError[0]*math.pow(2,18)*nActiveBX[0]
             
             PC_lumi_B0[0]=totalPC/PC_calib_xsec["B0"]/t_LS
             PC_lumi_B3p8[0]=totalPC/PC_calib_xsec["B3p8"]/t_LS
@@ -531,23 +598,34 @@ for key in LSKeys:
             
     if hasCMSData[0] and hasBrilData[0]: 
         try:
-            PC_xsec[0]=nCluster[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
-            goodVertices_xsec[0]=goodVertices[0]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
-            goodVertices_eff[0]=goodVertices_xsec[0]/xsec_ub
-            #print key,PC_xsec[0],goodVertices_xsec[0],goodVertices_eff[0]
+            totalOrbitsPerLS=math.pow(2,18)*nActiveBX[0]
+            PC_xsec[0]=nCluster[0]/BestLumi_integrated[0]*totalOrbitsPerLS
+            if args.includeVertices:
+                goodVertices_xsec[0]=goodVertices[0]/BestLumi_integrated[0]*totalOrbitsPerLS
+                goodVertices_eff[0]=goodVertices_xsec[0]/xsec_ub
+                validVertices_xsec[0]=validVertices[0]/BestLumi_integrated[0]*totalOrbitsPerLS
+                validVertices_eff[0]=validVertices_xsec[0]/xsec_ub
+                ibx=0
+                for bxid in bxids:
+                    # FIXME I should really use the lumi for this bx and not multiply by number of bxs
+                    goodVertices_perBX_xsec[ibx]=goodVertices_perBX[ibx]/BestLumi_integrated[0]*math.pow(2,18)*nActiveBX[0]
+                    goodVertices_perBX_eff[ibx]=goodVertices_perBX_xsec[ibx]/xsec_ub
+                    validVertices_perBX_xsec[ibx]=validVertices_perBX[ibx]/BestLumi_integrated[0]*math.pow(2,18)*nActiveBX[0]
+                    validVertices_perBX_eff[ibx]=validVertices_perBX_xsec[ibx]/xsec_ub
+                    ibx=ibx+1
+            
             for layer in range(0,5):
-                PC_xsec_layers[layer]=nPCPerLayer[layer]/BestLumi_integrated[0]*math.pow(2,18)*nBX[0]
-            if BestLumi_PU[0]==0 and BestLumi[0]>0 and nBX[0]>0:
-                BestLumi_PU[0]=BestLumi[0]*xsec_ub/nBX[0]/f_LHC
+                PC_xsec_layers[layer]=nPCPerLayer[layer]/BestLumi_integrated[0]*totalOrbitsPerLS
+            if BestLumi_PU[0]==0 and BestLumi[0]>0 and nActiveBX[0]>0:
+                BestLumi_PU[0]=BestLumi[0]*xsec_ub/nActiveBX[0]/f_LHC
+            
+            if PC_lumi_B3p8[0]>0 and nActiveBX[0]>0:
+                PC_PU[0]=PC_lumi_B3p8[0]*xsec_ub/nActiveBX[0]/f_LHC
                 
         except:
             print "Failed cms+bril computation",key,onlineLumi[key]
 
-    if args.isBatch is True:
-        if hasCMSData[0] and hasBrilData[0]: 
-            newtree.Fill()
-    else:       
-        newtree.Fill()
+    newtree.Fill()
 
 newfile.Write()
 newfile.Close()
