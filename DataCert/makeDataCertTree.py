@@ -444,7 +444,6 @@ for key in LSKeys:
     
     HFLumi[0]=-1
     BestLumi[0]=-1
-    BestLumi[0]=-1
     PLTLumi[0] =-1
     BCMFLumi[0]=-1
     

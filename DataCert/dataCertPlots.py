@@ -4,7 +4,7 @@ import math
 import numpy
 import argparse
 
-rebinLS=50
+rebinLS=1
 scale=1
 def ReStyleHistogram(hist,nRows=3):
     hist.GetXaxis().SetTitleSize(0.15*nRows/5)
@@ -236,13 +236,11 @@ tcan=ROOT.TCanvas("tcan","",1200*scale,700*scale)
 padlumis =ROOT.TPad("padlumis", "",0.0,0.0,0.5,1.0)
 padpixxsec =ROOT.TPad("padpixxsec","",0.5,0.0,1.0,1.0)
 
-padlumis.SetGrid()
 padlumis.Draw()
-padlumis.SetGrid()
 padpixxsec.Draw()
 
-PC_calib_xsec_B0=7.4e6
-PC_calib_xsec_B3p8=8.6e6
+PC_calib_xsec_B0=9.4e6
+PC_calib_xsec_B3p8=9.4e6
 
 for run in runsToCheck:
 
