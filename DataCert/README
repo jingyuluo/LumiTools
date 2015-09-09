@@ -27,7 +27,7 @@ which will be read by makeDataCertTree.py.  The usage is below.  Make sure to us
 "-o" to overwrite (the checking algorithm isn't working right for json files).
 
 source brilcalc_env.sh
-python retrieveBRILData.py -j jsondummy_run1_runN.txt -o
+python retrieveBRILData.py -j jsondummy_run1_runN.txt -o -x
 
 
 
