@@ -2,6 +2,7 @@ import subprocess
 import sys, os
 import argparse
 import pickle
+from scipy import stats
 
 def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
     cmd=["brilcalc","lumi","--byls"]
@@ -110,12 +111,51 @@ if not args.overwrite:
         sys.exit(0)
 
 onlineLumi={}
-types=["best","PLT","HFOC","BCM1F"]
+types=["best","PLTZERO","HFOC","BCM1F"]
             
 for type in types:
     CallBrilcalcAndProcess(onlineLumi,type)
 
+onlineLumi["runInfo"]={}
+onlineLumi["runInfo"]["nActiveBXHF"]={}
 
+lsKeys = onlineLumi.keys()
+lsKeys.sort()
+    
+nBXInRuns={}
+nBXListInRuns={}
+
+for lsKey in lsKeys:
+    if onlineLumi[lsKey].has_key('HFOC_BX'):
+        HFbxkeys = onlineLumi[lsKey]['HFOC_BX'].keys()
+        HFbxkeys.sort()
+        
+        HFMaxLumi=0
+        for HFbxkey in HFbxkeys :
+            HFMaxLumi=max(HFMaxLumi,onlineLumi[lsKey]['HFOC_BX'][HFbxkey])
+
+        HFActiveBX=0
+        for HFbxkey in HFbxkeys :
+            HFLumi_thisbx=onlineLumi[lsKey]['HFOC_BX'][HFbxkey]
+            if HFLumi_thisbx>0.2*HFMaxLumi and HFLumi_thisbx>0.1:
+                HFActiveBX=HFActiveBX+1
+
+        if not nBXListInRuns.has_key(lsKey[0]):
+            nBXListInRuns[lsKey[0]]=[]
+        nBXListInRuns[lsKey[0]].append(HFActiveBX)
+
+for run in nBXListInRuns.keys():
+    modes=stats.mode(nBXListInRuns[run])
+    maxMode=0
+    maxModeInd=-1
+    for iMod in range(len(modes)):
+        if maxMode<modes[iMod]:
+            maxModeInd=iMod
+        elif maxMode==modes[iMod]:
+            print "equal parts",maxMode,modes[iMod],maxModeInd,iMod
+        print iMod,modes[iMod],nBXListInRuns[run][iMod]
+    onlineLumi["runInfo"]["nActiveBXHF"][run]=nBXListInRuns[run][maxModeInd]
+    
 
 if args.run!=0:
     outFileName="run"+str(args.run)+".csv"
@@ -139,6 +179,15 @@ allKeys.sort()
 
 keyKey=["run","ls"]
 for lskey in allKeys:
+    if lskey=="runInfo":
+        outFile.write(lskey+",")
+        for itemKey in onlineLumi["runInfo"]:
+            outFile.write(str(itemKey)+","+str(onlineLumi[lskey][itemKey])+",")
+        outFile.write("\n")
+        continue
+            
+        
+
     iPart=0
     for part in lskey:
         outFile.write(keyKey[iPart]+","+str(part)+",")
