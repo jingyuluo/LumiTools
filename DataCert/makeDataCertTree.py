@@ -24,6 +24,8 @@ if args.nobril:
     args.pkldir=""
 
 
+vetoList=[302126344,  302123024,  302122768,  302057496,  302123804,  302124308,  
+302126364,  302188820]
 f_LHC = 11245.6
 t_LS=math.pow(2,18)/f_LHC
 xsec_ub=80000. #microbarn
@@ -235,7 +237,10 @@ if args.pccfile!="":
             module=item[0][1]
             layer=tree.layers[module]
             clusters=item[1]
-    
+   
+            if module in vetoList:
+                continue
+
             if layer==6:
                 layer=1
     
@@ -512,15 +517,15 @@ for key in LSKeys:
                     idxHF = idxHF+1
                     
 
-            if onlineLumi[key].has_key('PLT_BX'):
-                nBXPLT[0] = len(onlineLumi[key]['PLT_BX'])
+            if onlineLumi[key].has_key('PLTZERO_BX'):
+                nBXPLT[0] = len(onlineLumi[key]['PLTZERO_BX'])
                 idxPLT=0
-                PLTbxkeys = onlineLumi[key]['PLT_BX'].keys()
+                PLTbxkeys = onlineLumi[key]['PLTZERO_BX'].keys()
                 PLTbxkeys.sort()
                 #print PLTbxkeys
                 for PLTbxkey in PLTbxkeys :
                     PLTBXid[idxPLT] = int(PLTbxkey)
-                    PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLT_BX'][PLTbxkey])/t_LS
+                    PLTLumi_perBX[idxPLT] = float(onlineLumi[key]['PLTZERO_BX'][PLTbxkey])/t_LS
                     idxPLT = idxPLT+1
         
             if onlineLumi[key].has_key('BCM1F_BX'):

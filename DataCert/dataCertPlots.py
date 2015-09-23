@@ -4,6 +4,18 @@ import math
 import numpy
 import argparse
 
+
+parser = argparse.ArgumentParser(description='Make data certifcation plots')
+parser.add_argument('-c', '--certfile', type=str, default="", help='The data certfication tree')
+parser.add_argument('-r', '--runlist', type=str, default="", help="Minimum fill number")
+parser.add_argument('-o', '--outDir',  type=str, default="", help="Path to output directory")
+parser.add_argument('-a', '--autogen', action='store_true', default=False, help="Auto generator list of runs from file")
+parser.add_argument('-b', '--batch',   action='store_true', default=False, help="Batch mode (doesn't make GUI TCanvases)")
+
+args = parser.parse_args()
+
+ROOT.gStyle.SetPadTickY(2)
+
 rebinLS=1
 scale=1
 def ReStyleHistogram(hist,nRows=3):
@@ -43,18 +55,13 @@ def GetYAverage(hist,zeroSupress=True):
         return -999,-999
 
 
-parser = argparse.ArgumentParser(description='Make data certifcation plots')
-parser.add_argument('-c', '--certfile', type=str, default="", help='The data certfication tree')
-parser.add_argument('-r', '--runlist', type=str, default="", help="Minimum fill number")
-parser.add_argument('-a', '--autogen', action='store_true', default=False, help="Auto generator list of runs from file")
-parser.add_argument('-b', '--batch',   action='store_true', default=False, help="Batch mode (doesn't make GUI TCanvases)")
-
-args = parser.parse_args()
-
 if args.batch is True:
     ROOT.gROOT.SetBatch(ROOT.kTRUE)
     scale=4
 
+if args.outDir!="":
+    if args.outDir[-1]!="/":
+        args.outDir=args.outDir+"/"
 
 filename=args.certfile
 tfile=ROOT.TFile(filename)
@@ -260,11 +267,11 @@ for run in runsToCheck:
     legPixXSec.AddEntry(lineB3p8,"B=3.8","l")
     legPixXSec.AddEntry(lineB0,"B=0","l")
 
-    pixhistmax=histpix[run].GetMaximum()*1.4
-    if pixhistmax>PC_calib_xsec_B3p8*1.5 or pixhistmax<PC_calib_xsec_B3p8:
-        pixhistmax=PC_calib_xsec_B3p8*1.5
-
     if run in histpix.keys():
+        pixhistmax=histpix[run].GetMaximum()*1.4
+        if pixhistmax>PC_calib_xsec_B3p8*1.5 or pixhistmax<PC_calib_xsec_B3p8:
+            pixhistmax=PC_calib_xsec_B3p8*1.5
+
         padpixxsec.cd(1)
         histpix[run].SetMaximum(pixhistmax)
         label=ROOT.TText(0,histpix[run].GetMaximum()*0.88,"   Pixel Cluster Cross Section - Run="+str(run))
@@ -410,7 +417,7 @@ for run in runsToCheck:
             padlumis.Update()
 
     tcan.Update()
-    tcan.SaveAs(str(run)+".png")
+    tcan.SaveAs(args.outDir+str(run)+".png")
 
     #raw_input()
     padlumis.Clear()
@@ -445,7 +452,7 @@ for run in runsToCheck:
             histlayers[key].Draw("hist")
             layertexts[layer].Draw("same")
         canlayers.Update()
-        canlayers.SaveAs(str(run)+"_layers.png")
+        canlayers.SaveAs(args.outDir+str(run)+"_layers.png")
 
 
     if run in bothSets or run in onlyCMS:
@@ -467,7 +474,7 @@ for run in runsToCheck:
                 PCClayers[key].Draw("histsame")
         stabLeg.Draw("same")
         stability.Update()
-        stability.SaveAs(str(run)+"_stability.png")
+        stability.SaveAs(args.outDir+str(run)+"_stability.png")
 
 
 
