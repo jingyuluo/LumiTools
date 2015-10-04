@@ -19,9 +19,8 @@ args=parser.parse_args()
 def MakeJob(outputdir,jobid,filename,minfill):
     joblines=[]
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
-    joblines.append("cd /afs/cern.ch/work/j/jingyu/CMSSW_7_4_7/src")
-    joblines.append("cmsenv")
     joblines.append("cd "+outputdir)
+    joblines.append("cmsenv")
     makeDataCMD="python ../makeDataCertTree.py --pccfile="+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill)
     if args.outPath!="":
         makeDataCMD=makeDataCMD+" --outPath="+args.outPath
