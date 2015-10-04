@@ -12,16 +12,19 @@ parser.add_argument("-s",  "--sub", action='store_true', default=False, help="bs
 parser.add_argument("--pkldir", type=str, default="../brildata", help="Path to BRIL pickle files.")
 parser.add_argument("-q", "--queue", type=str, default="8nh", help="lxbatch queue (default:  8nh)")
 parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting")
-
+parser.add_argument('-o', '--outPath', default="", help="Specify the path of the output files")
 args=parser.parse_args()
 
 
 def MakeJob(outputdir,jobid,filename,minfill):
     joblines=[]
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
-    joblines.append("cd "+outputdir)
+    joblines.append("cd /afs/cern.ch/work/j/jingyu/CMSSW_7_4_7/src")
     joblines.append("cmsenv")
+    joblines.append("cd "+outputdir)
     makeDataCMD="python ../makeDataCertTree.py --pccfile="+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill)
+    if args.outPath!="":
+        makeDataCMD=makeDataCMD+" --outPath="+args.outPath
     if not args.includeVertices:
         makeDataCMD=makeDataCMD+" -v"
     
