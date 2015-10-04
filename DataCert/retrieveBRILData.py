@@ -15,7 +15,15 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
             cmd.extend(["-f",str(args.fill)])
         if args.xing:
             cmd.extend(["--xing"])
-
+    if args.normtag:
+        if type is "best":
+            cmd.extend(["--normtag", "/afs/cern.ch/user/c/cmsbril/public/normtag_json/OfflineNormtagV1.json"])
+        if type is "PLTZERO":
+            cmd.extend(["--normtag", "pltzerov1"])
+        if type is "HFOC":
+            cmd.extend(["--normtag", "hfocv1"])
+        if type is "BCM1F":
+            cmd.extend(["--normtag", "bcm1fv1"])
     if type is not "best":
         cmd.append("--type="+type)
     brilcalcOutput=subprocess.check_output(cmd)
@@ -42,6 +50,7 @@ def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
                         bxname = type+"_BX"
                         onlineLumiDict[lskey][bxname]={}
                         bxlist = items[10].lstrip().lstrip("[").rstrip().rstrip("]")
+                        #print ("bxlist"),bxlist
                         bxlist = bxlist.split()
                         for i in range(len(bxlist)):
                             if i%3==0:
@@ -63,6 +72,7 @@ parser.add_argument('-j', '--json', type=str, default="", help="JSON formatted f
 parser.add_argument('-o', '--overwrite', action='store_true', default=False, help="Overwrite data if it already exists (default False)")
 parser.add_argument('--datadir',    type=str, default="brildata", help="Location to put/retrieve bril data")
 parser.add_argument('-x', '--xing', action='store_true', default=False, help="Get the Lumi per BX")
+parser.add_argument('-n', '--normtag', action='store_true', default=False, help="--normaltag option for brilcalc")
 args = parser.parse_args()
 
     
@@ -127,6 +137,8 @@ nBXListInRuns={}
 
 for lsKey in lsKeys:
     if onlineLumi[lsKey].has_key('HFOC_BX'):
+        #print("Has HFbxkeys")
+        #print(onlineLumi[lsKey]['HFOC_BX'])
         HFbxkeys = onlineLumi[lsKey]['HFOC_BX'].keys()
         HFbxkeys.sort()
         
