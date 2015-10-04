@@ -16,6 +16,7 @@ def SetNBX():
     lumiVars["BCMFLumi_perBX"]["nBX"]=tree.nBXBCMF
     lumiVars["PLTLumi_perBX"]["nBX"]=tree.nBXPLT
     lumiVars["PC_lumi_B3p8_perBX"]["nBX"]=tree.nBX
+#    lumiVars["PC_lumi_layer2"]["nBX"]=tree.nBX
 
 
 if len(sys.argv) <2:
@@ -35,26 +36,34 @@ lumiVars["HFLumi_perBX"]={}
 lumiVars["BCMFLumi_perBX"]={}
 lumiVars["PLTLumi_perBX"]={}
 lumiVars["PC_lumi_B3p8_perBX"]={}
+#lumiVars["PC_lumi_layer2"]={}
 
 lumiVars["HFLumi_perBX"]["lumi"]=tree.HFLumi_perBX
 lumiVars["BCMFLumi_perBX"]["lumi"]=tree.BCMFLumi_perBX
 lumiVars["PLTLumi_perBX"]["lumi"]=tree.PLTLumi_perBX
 lumiVars["PC_lumi_B3p8_perBX"]["lumi"]=tree.PC_lumi_B3p8_perBX
+#lumiVars["PC_lumi_layer2"]["lumi"]=tree.nPCPerLayer[2]*tree.nActiveBX*2^18/(9.4e6*0.319)/23.31
 
 lumiVars["HFLumi_perBX"]["nBX"]=tree.nBXHF
 lumiVars["BCMFLumi_perBX"]["nBX"]=tree.nBXBCMF
 lumiVars["PLTLumi_perBX"]["nBX"]=tree.nBXPLT
 lumiVars["PC_lumi_B3p8_perBX"]["nBX"]=tree.nBX
+#lumiVars["PC_lumi_layer2"]["nBX"]=tree.nBX
+
 
 lumiVars["HFLumi_perBX"]["BX"]=tree.HFBXid
 lumiVars["BCMFLumi_perBX"]["BX"]=tree.BCMFBXid
 lumiVars["PLTLumi_perBX"]["BX"]=tree.PLTBXid
 lumiVars["PC_lumi_B3p8_perBX"]["BX"]=tree.PCBXid
+#lumiVars["PC_lumi_layer2"][""]=tree.PCBXid
+
 
 lumiVars["HFLumi_perBX"]["activeBX"]={}
 lumiVars["BCMFLumi_perBX"]["activeBX"]={}
 lumiVars["PLTLumi_perBX"]["activeBX"]={}
 lumiVars["PC_lumi_B3p8_perBX"]["activeBX"]={}
+#lumiVars["PC_lumi_layer2"][""]=tree.
+
 
 
 nEntries=tree.GetEntries()
@@ -62,6 +71,7 @@ nEntries=tree.GetEntries()
 nLS=200
 minPCC=20
 doFits=False
+corrPCC=True
 
 timeOrderedEntries=[]
 runLSToEntry={}
@@ -200,6 +210,12 @@ for run in maxLSInRun:
             elif len(bxList)==0:
                 soloBunches[run].append(prevBunch)
             
+print "n+1 bunch"
+for run in maxLSInRun.keys():
+    print run,
+    for iTrain in bunchTrains[run]:
+        print bunchTrains[run][iTrain][-1]+3,
+    print
 
 # instantiate plots
 hists={}
@@ -271,7 +287,21 @@ for iOrdered in timeOrderedEntries:
                 #    hists[histType][str(tree.run)+"2d"].Fill(tree.LS,lumiVars[histType]["BX"][ibx],lumiVars[histType]["lumi"][ibx])
                 #    norms[histType][str(tree.run)+"2d"].Fill(tree.LS,lumiVars[histType]["BX"][ibx],1.0)
                 #else:
-                hists[histType][str(tree.run)+"2d"].Fill(tree.LS,lumiVars[histType]["BX"][ibx]-1,lumiVars[histType]["lumi"][ibx])
+                
+                # Two corrections for PCC
+                # 1) 6-8 % correction to bx n if there is lumi in bx n-1
+                # 2) longer range correction
+                # total is about 12% after bunch train ends -- approximating 
+                lumiVal=lumiVars[histType]["lumi"][ibx]
+                if histType.find("PC")!=-1 and corrPCC:
+                    if lumiVars[histType]["BX"][ibx]-1 in lumiVars[histType]["activeBX"][tree.run]:
+                        prevLumiVal=lumiVars[histType]["lumi"][ibx-1]
+                        #lumiVal=lumiVal/1.12
+                        lumiVal=lumiVal-lumiVal*0.06-prevLumiVal*0.06
+                        #lumiVal=lumiVal-lumiVal*0.04-prevLumiVal*0.08
+                        #lumiVal=lumiVal-prevLumiVal*0.12
+                    
+                hists[histType][str(tree.run)+"2d"].Fill(tree.LS,lumiVars[histType]["BX"][ibx]-1,lumiVal)
                 norms[histType][str(tree.run)+"2d"].Fill(tree.LS,lumiVars[histType]["BX"][ibx]-1,1.0)
 
 
@@ -388,7 +418,7 @@ for run in maxLSInRun.keys():
     for histType in ratioProfiles:
         ratioProfiles[histType][run]={}
         for group in groups:
-            ratioProfiles[histType][run][group]=ROOT.TProfile("profile"+group+str(run)+histType,group+str(run),80,0,10,0.7,1.3)
+            ratioProfiles[histType][run][group]=ROOT.TProfile("profile"+group+str(run)+histType,group+str(run),60,0,3.5,0.95,1.10)
 
     for histType in ratios:
         ratios[histType][run]={}
@@ -516,8 +546,12 @@ for histType in ratioProfiles:
             if iGroup==0:
                 ratioProfiles[histType][run][group].SetTitle("Ratio Profile in "+str(run)+";PLT SBIL [Hz/ub];Ratio")
                 ratioProfiles[histType][run][group].Draw()
-                ratioProfiles[histType][run][group].SetMaximum(1.2)
-                ratioProfiles[histType][run][group].SetMinimum(0.8)
+                if histType.find("HFLumi")!=-1:
+                    ratioProfiles[histType][run][group].SetMaximum(1.2)
+                    ratioProfiles[histType][run][group].SetMinimum(0.95)
+                else:
+                    ratioProfiles[histType][run][group].SetMaximum(1.1)
+                    ratioProfiles[histType][run][group].SetMinimum(0.95)
             else:
                 ratioProfiles[histType][run][group].Draw("same")
             if doFits:
