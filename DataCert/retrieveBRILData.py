@@ -72,7 +72,7 @@ parser.add_argument('-j', '--json', type=str, default="", help="JSON formatted f
 parser.add_argument('-o', '--overwrite', action='store_true', default=False, help="Overwrite data if it already exists (default False)")
 parser.add_argument('--datadir',    type=str, default="brildata", help="Location to put/retrieve bril data")
 parser.add_argument('-x', '--xing', action='store_true', default=False, help="Get the Lumi per BX")
-parser.add_argument('-n', '--normtag', action='store_true', default=True, help="--normaltag option for brilcalc")
+parser.add_argument('-n', '--normtag', action='store_true', default=True, help="--normaltag option for brilcalc, default value is True")
 args = parser.parse_args()
 
     
