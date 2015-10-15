@@ -157,14 +157,16 @@ yLabelPix="Pixel Cluster xsec (ub)"
 for ient in range(nentries):
     tree.GetEntry(ient)
     if tree.hasCMSData:
-        for layer in range(0,5):
-            layerkey=str(tree.run)+"_PCClayer"+str(layer+1)
-            if not PCClayers.has_key(layerkey):
-                PCClayers[layerkey]=ROOT.TH1F(str(tree.run)+"_PCClayer"+str(layer+1),";Luminosity Section  ;PCC Ratios in "+str(tree.run),nBins[tree.run],0,runLSMax[tree.run])
-                PCClayers[layerkey].SetLineColor(layerColors[layer])
-                ReStyleHistogram(PCClayers[layerkey],2)
-            PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
-
+        if tree.nCluster>0:
+            for layer in range(0,5):
+                layerkey=str(tree.run)+"_PCClayer"+str(layer+1)
+                if not PCClayers.has_key(layerkey):
+                    PCClayers[layerkey]=ROOT.TH1F(str(tree.run)+"_PCClayer"+str(layer+1),";Luminosity Section  ;PCC Ratios in "+str(tree.run),nBins[tree.run],0,runLSMax[tree.run])
+                    PCClayers[layerkey].SetLineColor(layerColors[layer])
+                    ReStyleHistogram(PCClayers[layerkey],2)
+                PCClayers[str(tree.run)+"_PCClayer"+str(layer+1)].Fill(tree.LS,tree.nPCPerLayer[layer]/tree.nCluster)
+        else:
+            print "For run,LS",tree.run,tree.LS,"nCluster is",tree.nCluster
 
     if tree.run in bothSets:
         if not histpix.has_key(tree.run):
