@@ -4,31 +4,65 @@ import argparse
 import pickle
 from scipy import stats
 
-def CallBrilcalcAndProcess(onlineLumiDict,type="best"):
-    cmd=["brilcalc","lumi","--byls"]
+
+def GetLargestMode(nBXList):
+    #print nBXList
+    modes=stats.mode(nBXList)
+    #print modes
+    maxMode=0
+    maxModeInd=-1
+    for iMod in range(len(modes)):
+        if maxMode<modes[iMod]:
+            maxModeInd=iMod
+        elif maxMode==modes[iMod]:
+            print "equal parts",maxMode,modes[iMod],maxModeInd,iMod
+        print iMod,modes[iMod],nBXList[iMod]
+    #print nBXList[maxModeInd]
+    return nBXList[maxModeInd]
+
+
+def CallBrilcalcForBeamAndProcess(run):
+    beamCMD=["brilcalc","beam","-r",str(run)]
+    print beamCMD
+    beamOutput=subprocess.check_output(beamCMD)
+
+    lines=beamOutput.split("\n")
+    listOfNBXColliding=[]
+    for line in lines:
+        items=line.split("|")
+        try:
+            listOfNBXColliding.append(int(items[8].strip()))
+        except:
+            print "No nbx colliding in line:"
+            print line
+    return listOfNBXColliding
+
+
+def CallBrilcalcForLumiAndProcess(onlineLumiDict,type="best"):
+    lumiCMD=["brilcalc","lumi","--byls"]
     if args.json!="":
-        cmd.extend(["-i",args.json])
+        lumiCMD.extend(["-i",args.json])
     else:
         if args.run!=0:
-            cmd.extend(["-r",str(args.run)])
+            lumiCMD.extend(["-r",str(args.run)])
         if args.fill!=0:
-            cmd.extend(["-f",str(args.fill)])
+            lumiCMD.extend(["-f",str(args.fill)])
         if args.xing:
-            cmd.extend(["--xing"])
+            lumiCMD.extend(["--xing"])
     if args.normtag:
         if type is "best":
-            cmd.extend(["--normtag", "/afs/cern.ch/user/c/cmsbril/public/normtag_json/OfflineNormtagV1.json"])
+            lumiCMD.extend(["--normtag", "/afs/cern.ch/user/c/cmsbril/public/normtag_json/OfflineNormtagV1.json"])
         if type is "PLTZERO":
-            cmd.extend(["--normtag", "pltzerov1"])
+            lumiCMD.extend(["--normtag", "pltzerov1"])
         if type is "HFOC":
-            cmd.extend(["--normtag", "hfocv1"])
+            lumiCMD.extend(["--normtag", "hfocv1"])
         if type is "BCM1F":
-            cmd.extend(["--normtag", "bcm1fv1"])
+            lumiCMD.extend(["--normtag", "bcm1fv1"])
     if type is not "best":
-        cmd.append("--type="+type)
-    brilcalcOutput=subprocess.check_output(cmd)
+        lumiCMD.append("--type="+type)
+    lumiOutput=subprocess.check_output(lumiCMD)
     
-    lines=brilcalcOutput.split("\n")
+    lines=lumiOutput.split("\n")
     for line in lines:
         if line.find("STABLE BEAMS")!=-1:
             items=line.split("|")
@@ -124,18 +158,25 @@ onlineLumi={}
 types=["best","PLTZERO","HFOC","BCM1F"]
             
 for type in types:
-    CallBrilcalcAndProcess(onlineLumi,type)
+    CallBrilcalcForLumiAndProcess(onlineLumi,type)
 
 onlineLumi["runInfo"]={}
 onlineLumi["runInfo"]["nActiveBXHF"]={}
+onlineLumi["runInfo"]["nActiveBXBEAMINFO"]={}
 
 lsKeys = onlineLumi.keys()
 lsKeys.sort()
-    
+   
+runs=[]
 nBXInRuns={}
 nBXListInRuns={}
 
 for lsKey in lsKeys:
+    if lsKey=="runInfo":
+        continue
+    if lsKey[0] not in  runs:
+        print "adding run ",lsKey[0]
+        runs.append(lsKey[0])
     if onlineLumi[lsKey].has_key('HFOC_BX'):
         #print("Has HFbxkeys")
         #print(onlineLumi[lsKey]['HFOC_BX'])
@@ -156,18 +197,13 @@ for lsKey in lsKeys:
             nBXListInRuns[lsKey[0]]=[]
         nBXListInRuns[lsKey[0]].append(HFActiveBX)
 
-for run in nBXListInRuns.keys():
-    modes=stats.mode(nBXListInRuns[run])
-    maxMode=0
-    maxModeInd=-1
-    for iMod in range(len(modes)):
-        if maxMode<modes[iMod]:
-            maxModeInd=iMod
-        elif maxMode==modes[iMod]:
-            print "equal parts",maxMode,modes[iMod],maxModeInd,iMod
-        print iMod,modes[iMod],nBXListInRuns[run][iMod]
-    onlineLumi["runInfo"]["nActiveBXHF"][run]=nBXListInRuns[run][maxModeInd]
-    
+for run in runs:
+    if run in nBXListInRuns.keys():
+        onlineLumi["runInfo"]["nActiveBXHF"][run]=GetLargestMode(nBXListInRuns[run])
+    else:
+        onlineLumi["runInfo"]["nActiveBXHF"][run]=-99
+    nBXListBEAMINFO=CallBrilcalcForBeamAndProcess(run)
+    onlineLumi["runInfo"]["nActiveBXBEAMINFO"][run]=GetLargestMode(nBXListBEAMINFO)
 
 if args.run!=0:
     outFileName="run"+str(args.run)+".csv"

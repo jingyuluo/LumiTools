@@ -18,6 +18,8 @@ parser.add_argument('-b', '--isBatch', default=False, action="store_true", help=
 parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting (default true)")
 parser.add_argument('--eventBased', default=False, action="store_true", help="PCC ntuples are event based (default false--typically LS-based)")
 parser.add_argument('--outPath', default="", help="The path for the output file")
+#parser.add_argument('--perBX', type=bool, default=False, action="store_true", help="Store PC lumi per BX")
+#                if args.perBX:
 
 args = parser.parse_args()
 
@@ -120,11 +122,13 @@ if not args.nobril:
     files=os.listdir(args.pkldir)
     files.sort()
     for fileName in files:
+        print fileName,"this dict size",
         if fileName.find(".pkl") !=-1:
             try:
                 filePath=args.pkldir+"/"+fileName
                 pklFile=open(filePath,'rb')
                 data=pickle.load(pklFile)
+                print len(data),
                 if data.has_key("runInfo"):
                     for runInfoKey in data["runInfo"]:
                         if not runInfo.has_key(runInfoKey):
@@ -133,11 +137,11 @@ if not args.nobril:
                 onlineLumi.update(data)
                 pklFile.close()
             except:
-                print "Problem with pickle file",fileName
+                print "Problem with pickle file",
         else:
             continue
 
-        print fileName," new total LSs: ",len(onlineLumi)      
+        print " new total LSs: ",len(onlineLumi)
 
 endTime=time.time()
 print "Duration: ",endTime-startTime
@@ -447,10 +451,13 @@ for key in LSKeys:
     run[0]=key[0]
     LS[0]=key[1]
 
-    if runInfo.has_key("nActiveBXHF"):
-        if runInfo["nActiveBXHF"].has_key(run[0]):
-            nActiveBX[0]=int(runInfo["nActiveBXHF"][run[0]])
-
+    #if runInfo.has_key("nActiveBXHF"):
+    #    if runInfo["nActiveBXHF"].has_key(run[0]):
+    #        nActiveBX[0]=int(runInfo["nActiveBXHF"][run[0]])
+    if runInfo.has_key("nActiveBXBEAMINFO"):
+        if runInfo["nActiveBXBEAMINFO"].has_key(run[0]):
+            nActiveBX[0]=int(runInfo["nActiveBXBEAMINFO"][run[0]])
+        
 
     hasBrilData[0]=False
     hasCMSData[0]=False
@@ -569,6 +576,7 @@ for key in LSKeys:
                     ibx=ibx+1
 
             for PCCs in PCCsPerLS[key]:
+                #print key,count
                 if count==0:
                     mean,error=GetMeanAndMeanError(PCCs)
                     nCluster[0]=mean
@@ -580,10 +588,10 @@ for key in LSKeys:
                     ibx=0
                     bxids=PCCs.keys()
                     bxids.sort()
-                    #print bxids
                     for bxid in bxids:
+                        if bxid<0: 
+                            continue
                         mean,error=GetMeanAndMeanError(PCCs[bxid])
-                        #print ibx,bxid
                         PCBXid[ibx]=bxid
                         nPCPerBXid[ibx]=mean
                         totalPCperBX=mean*math.pow(2,18)
@@ -595,7 +603,6 @@ for key in LSKeys:
                             print "ibx,nBX[0],",ibx,nBX[0],", but WHY?!!!"
 
                 count=count+1 
-            
             totalPC=nCluster[0]*math.pow(2,18)*nActiveBX[0]
             totalPCError=nClusterError[0]*math.pow(2,18)*nActiveBX[0]
             
