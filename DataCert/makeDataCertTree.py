@@ -9,12 +9,13 @@ import time
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--pccfile', type=str, default="", help='The pccfile to input (pixel clusters and vertices)')
-parser.add_argument('--pkldir', type=str, default="brildata", help='bril data is here')
-parser.add_argument('--nobril', type=bool, default=False, help="Don\'t process bril data (default false)")
+parser.add_argument('--brildir', type=str, default="brildata", help='bril data is here')
+parser.add_argument('--nobril', default=False, action="store_true", help="Don\'t process bril data (default false)")
+parser.add_argument('--beamonly', default=False, action="store_true", help="BRIL data only contains beam info")
 parser.add_argument('-l','--label',type=str,default="",  help="Label for output file")
 parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
 parser.add_argument('--minrun',  type=int, default=230000,help="Minimum run number")
-parser.add_argument('-b', '--isBatch', default=False, action="store_true", help="Doesn't pop up plots and only fills tree when CMS and BRIL data are present")
+parser.add_argument('--isBatch', default=False, action="store_true", help="Doesn't pop up plots and only fills tree when CMS and BRIL data are present")
 parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting (default true)")
 parser.add_argument('--eventBased', default=False, action="store_true", help="PCC ntuples are event based (default false--typically LS-based)")
 parser.add_argument('--outPath', default="", help="The path for the output file")
@@ -24,7 +25,7 @@ parser.add_argument('--outPath', default="", help="The path for the output file"
 args = parser.parse_args()
 
 if args.nobril:
-    args.pkldir=""
+    args.brildir=""
 
 
 vetoList=[302126344,  302123024,  302122768,  302057496,  302123804,  302124308,  
@@ -119,13 +120,13 @@ onlineLumi={} #(fill,run,LS)
 runInfo={}
 
 if not args.nobril:
-    files=os.listdir(args.pkldir)
+    files=os.listdir(args.brildir)
     files.sort()
     for fileName in files:
         print fileName,"this dict size",
         if fileName.find(".pkl") !=-1:
             try:
-                filePath=args.pkldir+"/"+fileName
+                filePath=args.brildir+"/"+fileName
                 pklFile=open(filePath,'rb')
                 data=pickle.load(pklFile)
                 print len(data),
@@ -142,6 +143,8 @@ if not args.nobril:
             continue
 
         print " new total LSs: ",len(onlineLumi)
+
+print runInfo
 
 endTime=time.time()
 print "Duration: ",endTime-startTime
@@ -291,10 +294,12 @@ if "runInfo" in brilkeys:
 
 LSKeys=list(set(cmskeys+brilkeys))
 # if batch only look at keys in both
-if args.isBatch is True:
-    LSKeys=list(set(cmskeys).intersection(brilkeys))
+if args.isBatch:
+    if args.nobril or args.beamonly:
+        LSKeys=cmskeys
+    else:
+        LSKeys=list(set(cmskeys).intersection(brilkeys))
     
-
 LSKeys.sort()
 
 newfilename="dataCertification_"+str(LSKeys[0][0])+"_"+str(LSKeys[-1][0])+"_"+args.label+".root"
@@ -451,12 +456,20 @@ for key in LSKeys:
     run[0]=key[0]
     LS[0]=key[1]
 
-    #if runInfo.has_key("nActiveBXHF"):
-    #    if runInfo["nActiveBXHF"].has_key(run[0]):
-    #        nActiveBX[0]=int(runInfo["nActiveBXHF"][run[0]])
-    if runInfo.has_key("nActiveBXBEAMINFO"):
+    takenHF=False
+    if runInfo.has_key("nActiveBXHF"):
+        try:
+            if runInfo["nActiveBXHF"].has_key(run[0]):
+                if int(runInfo["nActiveBXHF"][run[0]])>0:
+                    nActiveBX[0]=int(runInfo["nActiveBXHF"][run[0]])
+                    takenHF=True
+        except:
+            takenHF=False
+    if runInfo.has_key("nActiveBXBEAMINFO") and not takenHF:
         if runInfo["nActiveBXBEAMINFO"].has_key(run[0]):
             nActiveBX[0]=int(runInfo["nActiveBXBEAMINFO"][run[0]])
+        else:
+            print "no",run[0],"among keys"
         
 
     hasBrilData[0]=False

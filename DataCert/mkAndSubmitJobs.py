@@ -9,7 +9,9 @@ parser.add_argument("-p",  "--path",  help="EOS path to PCCNTuples... /store/use
 parser.add_argument("-d",  "--dir", default="JobsDir", help="Output directory")
 parser.add_argument('--minfill', type=int, default=3818, help="Minimum fill number")
 parser.add_argument("-s",  "--sub", action='store_true', default=False, help="bsub created jobs")
-parser.add_argument("--pkldir", type=str, default="../brildata", help="Path to BRIL pickle files.")
+parser.add_argument("--brildir", type=str, default="../brildata", help="Path to BRIL pickle files.")
+parser.add_argument("--nobril", default=False, action="store_true", help="No brildata.")
+parser.add_argument("--beamonly", default=False, action="store_true", help="BRIL data only has beam info.")
 parser.add_argument("-q", "--queue", type=str, default="8nh", help="lxbatch queue (default:  8nh)")
 parser.add_argument('-v', '--includeVertices', default=True, action="store_false", help="Include vertex counting")
 parser.add_argument('-o', '--outPath', default="", help="Specify the path of the output files")
@@ -22,12 +24,20 @@ def MakeJob(outputdir,jobid,filename,minfill):
     joblines.append("source /cvmfs/cms.cern.ch/cmsset_default.sh")
     joblines.append("cd "+outputdir)
     joblines.append("cmsenv")
-    makeDataCMD="python ../makeDataCertTree.py --pccfile="+args.path+"/"+filename+" --pkldir="+args.pkldir+" -b --label="+str(jobid)+" --minfill="+str(minfill)
+    makeDataCMD="python ../makeDataCertTree.py --pccfile="+args.path+"/"+filename
+    if args.nobril:
+        makeDataCMD=makeDataCMD+" --nobril "
+    elif args.brildir!="":
+        makeDataCMD=makeDataCMD+" --brildir="+args.brildir
+    makeDataCMD=makeDataCMD+" --isBatch --label="+str(jobid)+" --minfill="+str(minfill)
     if args.outPath!="":
         makeDataCMD=makeDataCMD+" --outPath="+args.outPath
     if not args.includeVertices:
         makeDataCMD=makeDataCMD+" -v"
+    if args.beamonly:
+        makeDataCMD=makeDataCMD+" --beamonly"
     
+    #print makeDataCMD
     joblines.append(makeDataCMD)
     
     scriptFile=open(outputdir+"/job_"+str(jobid)+".sh","w+")
@@ -78,6 +88,8 @@ if args.checkOutput:
 if args.sub:
     print "Submitting",len(filenames),"jobs"
     for job in filenames:
+        #if job not in range(3455,3618):
+        #    continue
         if args.checkOutput:
             if filesPresent.find("_"+str(job)+".root")!=-1:
                 print "Found file output for job",job,"skipping"
