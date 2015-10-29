@@ -6,19 +6,25 @@ from scipy import stats
 
 
 def GetLargestMode(nBXList):
+    if len(nBXList)<1:
+        return 0
     #print nBXList
-    modes=stats.mode(nBXList)
-    #print modes
-    maxMode=0
-    maxModeInd=-1
-    for iMod in range(len(modes)):
-        if maxMode<modes[iMod]:
-            maxModeInd=iMod
-        elif maxMode==modes[iMod]:
-            print "equal parts",maxMode,modes[iMod],maxModeInd,iMod
-        print iMod,modes[iMod],nBXList[iMod]
-    #print nBXList[maxModeInd]
-    return nBXList[maxModeInd]
+    try:
+        modes=stats.mode(nBXList)
+        #print modes
+        maxMode=0
+        maxModeInd=-1
+        for iMod in range(len(modes)):
+            if maxMode<modes[iMod]:
+                maxModeInd=iMod
+            elif maxMode==modes[iMod]:
+                print "equal parts",maxMode,modes[iMod],maxModeInd,iMod
+            print iMod,modes[iMod],nBXList[iMod]
+        #print nBXList[maxModeInd]
+        return nBXList[maxModeInd]
+    except:
+        print "Problem with list",nBXList
+        return 0
 
 
 def CallBrilcalcForBeamAndProcess(run):
@@ -47,8 +53,8 @@ def CallBrilcalcForLumiAndProcess(onlineLumiDict,type="best"):
             lumiCMD.extend(["-r",str(args.run)])
         if args.fill!=0:
             lumiCMD.extend(["-f",str(args.fill)])
-        if args.xing:
-            lumiCMD.extend(["--xing"])
+    if args.xing:
+        lumiCMD.extend(["--xing"])
     if args.normtag:
         if type is "best":
             lumiCMD.extend(["--normtag", "/afs/cern.ch/user/c/cmsbril/public/normtag_json/OfflineNormtagV1.json"])
@@ -60,6 +66,7 @@ def CallBrilcalcForLumiAndProcess(onlineLumiDict,type="best"):
             lumiCMD.extend(["--normtag", "bcm1fv1"])
     if type is not "best":
         lumiCMD.append("--type="+type)
+    print lumiCMD
     lumiOutput=subprocess.check_output(lumiCMD)
     
     lines=lumiOutput.split("\n")
@@ -106,7 +113,9 @@ parser.add_argument('-j', '--json', type=str, default="", help="JSON formatted f
 parser.add_argument('-o', '--overwrite', action='store_true', default=False, help="Overwrite data if it already exists (default False)")
 parser.add_argument('--datadir',    type=str, default="brildata", help="Location to put/retrieve bril data")
 parser.add_argument('-x', '--xing', action='store_true', default=False, help="Get the Lumi per BX")
-parser.add_argument('-n', '--normtag', action='store_true', default=True, help="--normaltag option for brilcalc, default value is True")
+parser.add_argument('-n', '--normtag', action='store_false', default=True, help="--normaltag option for brilcalc, default value is True")
+parser.add_argument('--beamonly', action='store_true', default=False, help="Only call \"brilcalc beam\" (Default:  False)")
+parser.add_argument('--nbxfromhfonly', action='store_true', default=False, help="Determine the number of bunch crossings from the HF lumi.")
 args = parser.parse_args()
 
     
@@ -155,10 +164,16 @@ if not args.overwrite:
         sys.exit(0)
 
 onlineLumi={}
-types=["best","PLTZERO","HFOC","BCM1F"]
-            
-for type in types:
-    CallBrilcalcForLumiAndProcess(onlineLumi,type)
+if args.nbxfromhfonly:
+    types=["HFOC"]
+else:
+    types=["best","PLTZERO","HFOC","BCM1F"]
+
+print "args.nbxfromhfonly,args.beamonly,types",args.nbxfromhfonly,args.beamonly,types 
+if not args.beamonly:
+    for type in types:
+        CallBrilcalcForLumiAndProcess(onlineLumi,type)
+
 
 onlineLumi["runInfo"]={}
 onlineLumi["runInfo"]["nActiveBXHF"]={}
@@ -197,6 +212,23 @@ for lsKey in lsKeys:
             nBXListInRuns[lsKey[0]]=[]
         nBXListInRuns[lsKey[0]].append(HFActiveBX)
 
+if args.beamonly:
+    if args.run>0:
+        runs.append(args.run)
+    elif args.json!="":
+        import json
+        print args.json
+        jsonFile=open(args.json)
+        jsonDict=json.load(jsonFile)
+        print jsonDict.keys()
+        jsonRuns=jsonDict.keys()
+        jsonRuns.sort()
+        for run in jsonRuns:
+            try:
+                runs.append(int(run))
+            except:
+                print "Can't append",run
+
 for run in runs:
     if run in nBXListInRuns.keys():
         onlineLumi["runInfo"]["nActiveBXHF"][run]=GetLargestMode(nBXListInRuns[run])
@@ -212,8 +244,12 @@ if args.fill!=0:
     outFileName="fill"+str(args.fill)+".csv"
     pklFileName="fill"+str(args.fill)+".pkl"
 if args.json!="":
-    outFileName=args.json.split(".")[0]+".csv"
-    pklFileName=args.json.split(".")[0]+".pkl"
+    baseName=args.json.split("/")[-1]
+    print baseName
+    baseName=baseName.split(".")[0]
+    print baseName
+    outFileName=baseName+".csv"
+    pklFileName=baseName+".pkl"
 
 
 pklFile=open(args.datadir+"/"+pklFileName, 'w')
