@@ -43,8 +43,10 @@ for run in runs:
             total_origin+=h_origin.GetBinContent(i)
             total_after+=h_after.GetBinContent(i)
     
-    corrections[run]=total_after/total_origin 
-
+    try:
+        corrections[run]=total_after/total_origin 
+    except:
+        corrections[run]=1
 
 corrPCCFile=open('corrPCC.csv', 'a+')
 corrRuns=corrections.keys()
