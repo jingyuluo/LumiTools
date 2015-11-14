@@ -4,9 +4,6 @@ import argparse
 import subprocess
 from array import array
 
-ROOTSYS='/Users/jingyuluo/Downloads/Program/root/lib'
-sys.path.append(ROOTSYS)
-
 import ROOT
 from ROOT import TGraph2D
 
