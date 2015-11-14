@@ -1,4 +1,5 @@
 import ROOT
+import os
 import subprocess
 import argparse
 import numpy
@@ -9,6 +10,8 @@ parser=argparse.ArgumentParser()
 parser.add_argument("-a", default="0.076,0.077,0.1", help="Parameter a min,max,step.  Default:  0.076,0.077,0.1")
 parser.add_argument("-b", default="0.0006,0.0009,0.00005", help="Parameter b min,max,step.  Default:  0.0006,0.0009,0.00005")
 parser.add_argument("-c", default="0.012,0.02,0.0005", help="Parameter c min,max,step.  Default:  0.012,0.02,0.005")
+parser.add_argument("-d", "--dir", default="JobDir", help="For output and jobs.  Default: JobDir")
+parser.add_argument("--batch", default=False, help="Do jobs on lxbatch.  Default:  True")
 args=parser.parse_args()
 
 a=args.a.split(",")
@@ -20,6 +23,9 @@ blist=numpy.arange(float(b[0]),float(b[1]),float(b[2]))
 c=args.c.split(",")
 clist=numpy.arange(float(c[0]),float(c[1]),float(c[2]))
 
+if not os.path.isdir(args.dir):
+    os.makedirs(args.dir)
+
 maxJobs=5
 cmds=[]
 for ia in alist:
@@ -27,6 +33,18 @@ for ia in alist:
         for ic in clist:
             label="a"+str(ia)+"_b"+str(ib)+"_c"+str(ic)
             cmd=["python","DerivePCCCorrections.py","-f","Randoms_251496_251643_254833.root","-r","251496,251643","-l",label,"-p",str(ia)+","+str(ib)+","+str(ic),"-b"]
+            if args.batch:
+                cmd=["python","../DerivePCCCorrections.py","-f","../Randoms_251496_251643_254833.root","-r","251496,251643,254833","-l",label,"-p",str(ia)+","+str(ib)+","+str(ic),"-b"]
+                baseName="job_"+label
+                jobFileName=args.dir+"/"+baseName+".sh"
+                jobFile=open(jobFileName,"a+")
+                jobFile.write("cd "+os.getcwd()+"/"+args.dir+"\n")
+                for part in cmd:
+                    jobFile.write(part+" ")
+                jobFile.write("\n")
+                jobFile.close()
+                cmd="bsub -q 8nh -J "+label+" -o "+baseName+".log < "+jobFileName
+       
             cmds.append(cmd)
 icmd=0
 iSleep=0
@@ -34,7 +52,10 @@ print len(cmds),"total jobs"
 while icmd!=len(cmds):
     out=[line for line in subprocess.check_output(["ps"]).split("\n") if line.find("DerivePCCCorrections.py") !=-1 ]
     if len(out) < maxJobs:
-        subprocess.Popen(cmds[icmd])
+        if args.batch:
+            os.system(cmds[icmd])
+        else:
+            subprocess.Popen(cmds[icmd])
         icmd=icmd+1
     else:
         print "Waiting 60 seconds",iSleep,icmd,"of",len(cmds)
