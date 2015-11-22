@@ -16,7 +16,7 @@ parser.add_argument("--noType1", action='store_true', default=False, help="Only 
 parser.add_argument("--noType2", action='store_true', default=False, help="Only apply the type1 correction")
 parser.add_argument("-u","--useresponse", action='store_true', default=False, help="Use the final response instead of the real activity to calculate the Type2 Correction")
 parser.add_argument('-b', '--batch',   action='store_true', default=False, help="Batch mode (doesn't make GUI TCanvases)")
-parser.add_argument('-p', '--par', default="0.066, 0.00078, 0.012", help="The parameters for type1 and type2 correction")
+parser.add_argument('-p', '--par', default="0.066,0.0,0.00078,0.012", help="The parameters for type1 and type2 correction")
 
 args=parser.parse_args()
 
@@ -31,34 +31,42 @@ ROOT.gStyle.SetOptStat(0)
 if args.batch is True:
     ROOT.gROOT.SetBatch(ROOT.kTRUE)
 
-a=0.0#0.06636#0.073827#0.078625#0.076825
+a1=0.0#0.06636#0.073827#0.078625#0.076825
+a2=0.0
 b=0.0#0.00083#0.00078#0.00067#0.00083#0.000811#0.0007891#0.00080518#0.00080518#0.0008125#0.00090625#0.00047
 c=0.0#0.0126#0.012#0.017#0.0126#0.012282#0.011867#0.01261#0.0098
 
 if args.par!="":
     pars=args.par.split(",")
     if len(pars) >= 3:
-        a=float(pars[0])
-        b=float(pars[1])
-        c=float(pars[2])
+        a1=float(pars[0])
+        a2=float(pars[1])
+        b=float(pars[2])
+        c=float(pars[3])
 
 if args.noType1:
-    a=0
+    a1=0
+    a2=0
 if args.noType2:
     b=0
 
 # Print out the paramters for correction:
-print "parameter a: ", a
+print "parameter a1: ", a1
+print "parameter a2: ", a2
 print "parameter b: ", b
 print "parameter c: ", c
 
 
-histpar_a=ROOT.TH1F("histpar_a","",10, 0, 10)
+histpar_a1=ROOT.TH1F("histpar_a1","",10, 0, 10)
+histpar_a2=ROOT.TH1F("histpar_a2","",10, 0, 10)
+
 histpar_b=ROOT.TH1F("histpar_b","",10, 0, 10)
 histpar_c=ROOT.TH1F("histpar_c","",10, 0, 10)
 
-for ia in range(10):
-    histpar_a.SetBinContent(ia,a)
+for ia1 in range(10):
+    histpar_a1.SetBinContent(ia1,a1)
+for ia2 in range(10):
+    histpar_a2.SetBinContent(ia2,a2)
 for ib in range(10):
     histpar_b.SetBinContent(ib,b)
 for ic in range(10):
@@ -79,7 +87,8 @@ else:
 label=args.label
 
 newfile=ROOT.TFile("Overall_Correction_"+label+".root", "recreate")
-newfile.WriteTObject(histpar_a, "Parameter_a")
+newfile.WriteTObject(histpar_a1, "Parameter_a1")
+newfile.WriteTObject(histpar_a2, "Parameter_a2")
 newfile.WriteTObject(histpar_b, "Parameter_b")
 newfile.WriteTObject(histpar_c, "Parameter_c")
 
@@ -149,18 +158,34 @@ for run in runs:
 
     cansig.cd()
     noise=0
+
+
+
     # FIXME
     # 36/35 are magic numbers
     # they may not always be valid
-    for l in range(1,36):
-        noise=noise+histsig.GetBinContent(l)
-    noise=noise/35
-    print("noise: {0}".format(noise))
+    #for l in range(1,36):
+    #    noise=noise+histsig.GetBinContent(l)
+    #noise=noise/35
+    #print("noise: {0}".format(noise))
+    
+    gap=False
+    idl=0
+    num_cut=20
+    for l in range(1,500):
+        if histsig.GetBinContent(l)==0 and histsig.GetBinContent(l+1)==0 and histsig.GetBinContent(l+2)==0:
+            gap=True
+        if gap and histsig.GetBinContent(l)!=0 and idl<num_cut:
+            noise+=histsig.GetBinContent(l)
+            idl+=1
+
+    noise=noise/num_cut
+         
 
     for k in range(1,3600):
         bin_k = histsig.GetBinContent(k)
-        histsig.SetBinContent(k+1, histsig.GetBinContent(k+1)-bin_k*a)
-        corrfill.SetBinContent(k+1, corrfill.GetBinContent(k+1)+bin_k*a)
+        histsig.SetBinContent(k+1, histsig.GetBinContent(k+1)-bin_k*a1-bin_k*bin_k*a2)
+        corrfill.SetBinContent(k+1, corrfill.GetBinContent(k+1)+bin_k*a1+bin_k*bin_k*a2)
     hist_afterTypeI=histsig.Clone()
 
     for m in range(1,3600):
