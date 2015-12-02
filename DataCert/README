@@ -27,7 +27,7 @@ which will be read by makeDataCertTree.py.  The usage is below.  Make sure to us
 "-o" to overwrite (the checking algorithm isn't working right for json files).
 
 source brilcalc_env.sh
-python retrieveBRILData.py -j jsondummy_run1_runN.txt -o -n
+python retrieveBRILData.py -j jsondummy_run1_runN.txt -o
 
 
 ######################
@@ -39,10 +39,10 @@ directory where the brilcalc pickle files are located.  There are several featur
 which should be useful:  setting the minimum LHC fill number for instance.
 
 E.g.
-python makeDataCertTree.py --pccfile=/store/user/capalmer/ZeroBias1/PCC_Zerobias1_RunCert_0Bfield_LStest2/150626_191443/0000/pcc_Data_LS_12.root --pkldir=brildata
+python makeDataCertTree.py --pccfile=/store/user/capalmer/ZeroBias1/PCC_Zerobias1_RunCert_0Bfield_LStest2/150626_191443/0000/pcc_Data_LS_12.root --brildir=brildata
 
 E.g.  (BRIL only output)
-python makeDataCertTree.py --pkldir=brildata -l BRILONLY
+python makeDataCertTree.py --brildir=brildata -l BRILONLY
 Output:  dataCertification_254227_254332_BRILONLY.root
 
 

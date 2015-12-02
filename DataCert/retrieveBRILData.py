@@ -84,6 +84,7 @@ def CallBrilcalcForLumiAndProcess(onlineLumiDict,type="best"):
                         best="HFOC"
                     onlineLumiDict[lskey][type]=best #whose lumi is best
                     onlineLumiDict[lskey]["PU_best"]=items[8].strip() #PU
+                    onlineLumiDict[lskey][best]=items[7].strip() 
                 else:
                     onlineLumiDict[lskey][type]=items[6].strip() #integrated lumi
                 if args.xing:
