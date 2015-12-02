@@ -71,7 +71,8 @@ for filename in filenames:
         tree.GetEntry(ient)
         if not LSbyRun.has_key(tree.run):
             LSbyRun[tree.run]=[]
-        LSbyRun[tree.run].append(tree.LS)
+        if tree.LS not in LSbyRun[tree.run]:
+            LSbyRun[tree.run].append(tree.LS)
 
 
 sortedRuns=LSbyRun.keys()

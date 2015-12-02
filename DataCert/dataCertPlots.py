@@ -328,6 +328,7 @@ for run in runsToCheck:
 
         histbest[run].SetLineColor(ROOT.kBlack)
         histbest[run].SetLineWidth(2*scale)
+        histbest[run].SetMinimum(0)
         histbest[run].SetMaximum(maxHist)
         histbest[run].Draw("hist")
         print "intL for best in run",run,"is",histbest[run].Integral()
@@ -403,13 +404,13 @@ for run in runsToCheck:
         mean6,meanError6=GetYAverage(bcmfOverPLT,True)
 
 
- 	leg2=ROOT.TLegend(0.1,0.7,0.5,0.9)
-        leg2.AddEntry(BestOPCLumi, "Best/PCLumi = 	"+"{:10.4f}".format(mean1)+" #pm "+"{:10.4f}".format(meanError1),"l")
-        leg2.AddEntry(HFOPCLumi,   "HF/PCLumi = 	"+"{:10.4f}".format(mean2)+" #pm "+"{:10.4f}".format(meanError2),"l")
-        leg2.AddEntry(BCM1FOPCLumi,"BCM1F/PCLumi = 	"+"{:10.4f}".format(mean3)+" #pm "+"{:10.4f}".format(meanError3),"l")
-        leg2.AddEntry(PLTOPCLumi,  "PLT/PCLumi = 	"+"{:10.4f}".format(mean4)+" #pm "+"{:10.4f}".format(meanError4),"l")
-        leg2.AddEntry(hfOverPLT,   "HF/PLT = 		"+"{:10.4f}".format(mean5)+" #pm "+"{:10.4f}".format(meanError5),"l")
-        leg2.AddEntry(bcmfOverPLT, "BCM1F/PLT = 	"+"{:10.4f}".format(mean6)+" #pm "+"{:10.4f}".format(meanError6),"l")
+        leg2=ROOT.TLegend(0.1,0.7,0.5,0.9)
+        leg2.AddEntry(BestOPCLumi, "Best/PCLumi       =   "+"{:10.4f}".format(mean1)+" #pm "+"{:10.4f}".format(meanError1),"l")
+        leg2.AddEntry(HFOPCLumi,   "HF/PCLumi         =   "+"{:10.4f}".format(mean2)+" #pm "+"{:10.4f}".format(meanError2),"l")
+        leg2.AddEntry(BCM1FOPCLumi,"BCM1F/PCLumi  =   "+"{:10.4f}".format(mean3)+" #pm "+"{:10.4f}".format(meanError3),"l")
+        leg2.AddEntry(PLTOPCLumi,  "PLT/PCLumi        =   "+"{:10.4f}".format(mean4)+" #pm "+"{:10.4f}".format(meanError4),"l")
+        leg2.AddEntry(hfOverPLT,   "HF/PLT               =   "+"{:10.4f}".format(mean5)+" #pm "+"{:10.4f}".format(meanError5),"l")
+        leg2.AddEntry(bcmfOverPLT, "BCM1F/PLT        =   "+"{:10.4f}".format(mean6)+" #pm "+"{:10.4f}".format(meanError6),"l")
         BestOPCLumi.Draw("hist")
         HFOPCLumi.Draw("histsame")
         BCM1FOPCLumi.Draw("histsame")

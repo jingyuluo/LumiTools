@@ -447,8 +447,13 @@ newtree.Branch("validVertices_perBX_eff",  validVertices_perBX_eff, "validVertic
 
 
 PC_calib_xsec={}
-PC_calib_xsec["B0"]=9.4e6
-PC_calib_xsec["B3p8"]=9.4e6
+PC_calib_xsec["B0_pp13TeV"]=9.4e6
+PC_calib_xsec["B3p8_pp13TeV"]=9.4e6
+# scale with PLT 3.51E-28/4.95E-28*9.4
+PC_calib_xsec["B0_pp5TeV"]=6.7e6
+PC_calib_xsec["B3p8_pp5TeV"]=6.7e6
+
+collisionType="pp5TeV"
 
 hists={}
 PCCPerLayer=[118.,44.3,39.2,34.9,22.3,23.9] #from MC
@@ -512,9 +517,15 @@ for key in LSKeys:
         try:
             hasBrilData[0]=True
             fill[0]=int(onlineLumi[key]['fill'])
-            BestLumi_integrated[0]=float(onlineLumi[key][onlineLumi[key]['best']])
-            BestLumi[0]=BestLumi_integrated[0]
-            BestLumi_PU[0]=float(onlineLumi[key]['PU_best'])
+            if onlineLumi[key].has_key('best'):
+                BestLumi_integrated[0]=float(onlineLumi[key][onlineLumi[key]['best']])
+                BestLumi[0]=BestLumi_integrated[0]
+            else:
+                BestLumi_integrated[0]=float(onlineLumi[key]['PLTZERO'])
+                BestLumi[0]=BestLumi_integrated[0]
+            if onlineLumi[key].has_key('PU_best'):
+                BestLumi_PU[0]=float(onlineLumi[key]['PU_best'])
+                
             if BestLumi[0]>0:
                 BestLumi[0]=BestLumi[0]/t_LS
             if onlineLumi[key].has_key('HFOC'):
@@ -543,7 +554,7 @@ for key in LSKeys:
                     HFBXid[idxHF] = int(HFbxkey)
                     HFLumi_perBX[idxHF] = float(onlineLumi[key]['HFOC_BX'][HFbxkey])/t_LS
                     idxHF = idxHF+1
-                    
+            
 
             if onlineLumi[key].has_key('PLTZERO_BX'):
                 nBXPLT[0] = len(onlineLumi[key]['PLTZERO_BX'])
@@ -608,8 +619,8 @@ for key in LSKeys:
                         PCBXid[ibx]=bxid
                         nPCPerBXid[ibx]=mean
                         totalPCperBX=mean*math.pow(2,18)
-                        PC_lumi_B0_perBX[ibx]=totalPCperBX/PC_calib_xsec["B0"]/t_LS
-                        PC_lumi_B3p8_perBX[ibx]=totalPCperBX/PC_calib_xsec["B3p8"]/t_LS
+                        PC_lumi_B0_perBX[ibx]=totalPCperBX/PC_calib_xsec["B0_"+collisionType]/t_LS
+                        PC_lumi_B3p8_perBX[ibx]=totalPCperBX/PC_calib_xsec["B3p8_"+collisionType]/t_LS
 
                         ibx=ibx+1
                         if ibx>nBX[0]:
@@ -619,12 +630,12 @@ for key in LSKeys:
             totalPC=nCluster[0]*math.pow(2,18)*nActiveBX[0]
             totalPCError=nClusterError[0]*math.pow(2,18)*nActiveBX[0]
             
-            PC_lumi_B0[0]=totalPC/PC_calib_xsec["B0"]/t_LS
-            PC_lumi_B3p8[0]=totalPC/PC_calib_xsec["B3p8"]/t_LS
-            PC_lumi_integrated_B0[0]=totalPC/PC_calib_xsec["B0"]
-            PC_lumi_integrated_B3p8[0]=totalPC/PC_calib_xsec["B3p8"]
-            PC_lumi_integrated_error_B0[0]=totalPCError/PC_calib_xsec["B0"]
-            PC_lumi_integrated_error_B3p8[0]=totalPCError/PC_calib_xsec["B3p8"]
+            PC_lumi_B0[0]=totalPC/PC_calib_xsec["B0_"+collisionType]/t_LS
+            PC_lumi_B3p8[0]=totalPC/PC_calib_xsec["B3p8_"+collisionType]/t_LS
+            PC_lumi_integrated_B0[0]=totalPC/PC_calib_xsec["B0_"+collisionType]
+            PC_lumi_integrated_B3p8[0]=totalPC/PC_calib_xsec["B3p8_"+collisionType]
+            PC_lumi_integrated_error_B0[0]=totalPCError/PC_calib_xsec["B0_"+collisionType]
+            PC_lumi_integrated_error_B3p8[0]=totalPCError/PC_calib_xsec["B3p8_"+collisionType]
             
         except:
             print "Failed in cmskey",key
