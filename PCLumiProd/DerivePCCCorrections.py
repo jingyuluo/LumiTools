@@ -6,17 +6,19 @@ import ROOT
 
 parser=argparse.ArgumentParser()
 #parser.add_argument("-h", "--help", help="Display this message.")
-parser.add_argument("-f", "--file", default="", help="The path to a cert tree.")
+parser.add_argument("-f", "--certfile", default="", help="The path to a cert tree.")
 parser.add_argument("-d", "--dir",  default="", help="The path to a directory of cert trees.")
 parser.add_argument("-r", "--runs", default="", help="Comma separated list of runs.")
 parser.add_argument("--auto", default=False, action="store_true", help="Determine the runs from the certtree")
 parser.add_argument("-l", "--label", default="", help="The label for outputs")
 parser.add_argument("-a", "--all", default=True, help="Apply both the type1 and type2 correction")
+parser.add_argument("--quadTrainCorr", default=0.02, help="Apply a quadratic correction to in-train BXs (Default:  0.02 ub/Hz)")
 parser.add_argument("--noType1", action='store_true', default=False, help="Only apply the type2 correction")
 parser.add_argument("--noType2", action='store_true', default=False, help="Only apply the type1 correction")
 parser.add_argument("-u","--useresponse", action='store_true', default=False, help="Use the final response instead of the real activity to calculate the Type2 Correction")
 parser.add_argument('-b', '--batch',   action='store_true', default=False, help="Batch mode (doesn't make GUI TCanvases)")
-parser.add_argument('-p', '--par', default="0.066,0.0,0.00078,0.012", help="The parameters for type1 and type2 correction")
+parser.add_argument('-p', '--par', default="0.059,0.0,0.0007,0.013", help="The parameters for type1 and type2 correction")
+parser.add_argument('--savePNGs', default=False, help="Save PNGs or not (Default:  False)")
 
 args=parser.parse_args()
 
@@ -63,6 +65,9 @@ histpar_a2=ROOT.TH1F("histpar_a2","",10, 0, 10)
 histpar_b=ROOT.TH1F("histpar_b","",10, 0, 10)
 histpar_c=ROOT.TH1F("histpar_c","",10, 0, 10)
 
+histpar_quad=ROOT.TH1F("histpar_quad","",10, 0, 10)
+args.quadTrainCorr=float(args.quadTrainCorr)
+
 for ia1 in range(10):
     histpar_a1.SetBinContent(ia1,a1)
 for ia2 in range(10):
@@ -71,17 +76,20 @@ for ib in range(10):
     histpar_b.SetBinContent(ib,b)
 for ic in range(10):
     histpar_c.SetBinContent(ic,c)
+for iq in range(10):
+    histpar_quad.SetBinContent(iq,args.quadTrainCorr)
 
-corrTemplate=ROOT.TH1F("corrTemplate","",3600,0,3600)
+type2CorrTemplate=ROOT.TH1F("type2CorrTemplate","",3600,0,3600)
 
-#corrTemplate.SetBinContent(1,a+b*exp(c))
+# type 2 model is simple exponential
 for i in range(1,3600):
-    corrTemplate.SetBinContent(i,b*exp(-(i-2)*c))
-corrTemplate.GetXaxis().SetRangeUser(0,100)
+    type2CorrTemplate.SetBinContent(i,b*exp(-(i-2)*c))
+type2CorrTemplate.GetXaxis().SetRangeUser(0,100)
 
-filename=args.file
+fixRuns=False
 if args.runs!="":
     runs=args.runs.split(",")
+    fixRuns=True
 else:
     runs=[]
 label=args.label
@@ -91,153 +99,263 @@ newfile.WriteTObject(histpar_a1, "Parameter_a1")
 newfile.WriteTObject(histpar_a2, "Parameter_a2")
 newfile.WriteTObject(histpar_b, "Parameter_b")
 newfile.WriteTObject(histpar_c, "Parameter_c")
+newfile.WriteTObject(histpar_quad, "Parameter_quad")
+maxLSInRun={}
 
-tfile=ROOT.TFile(filename)
-tree=tfile.Get("certtree")
+filenames=[]
+if args.certfile!="":
+    filenames.append(args.certfile)
 
-tree.SetBranchStatus("*",0)
-tree.SetBranchStatus("run*", 1)
+if args.dir!="":
+    if args.dir.find("/store")==0:
+        eosfilenames=subprocess.check_output(["/afs/cern.ch/project/eos/installation/0.3.4/bin/eos.select","ls", args.path])
+        eosfilenames=eosfilenames.split("\n")
+        for filename in eosfilenames:
+            filenames.append("root://eoscms//eos/cms"+args.dir+"/"+filename)
+    else:
+        shortFileNames=os.listdir(args.dir)
+        for shortFileName in shortFileNames:
+            filenames.append(args.dir+"/"+shortFileName)
 
-if args.auto:
+
+for filename in filenames:
+    tfile=ROOT.TFile.Open(filename)
+    tree=tfile.Get("certtree")
+    
+    tree.SetBranchStatus("*",0)
+    tree.SetBranchStatus("run*", 1)
+    tree.SetBranchStatus("LS*", 1)
+    
     nentries=tree.GetEntries()
-
+    
     for iev in range(nentries):
         tree.GetEntry(iev)
-        if str(tree.run) not in runs:
+        if str(tree.run) not in runs and not fixRuns:
             print "Adding",tree.run
             runs.append(str(tree.run))
-
+        if not maxLSInRun.has_key(str(tree.run)):
+            maxLSInRun[str(tree.run)]=tree.LS
+        elif maxLSInRun[str(tree.run)]<tree.LS:
+            maxLSInRun[str(tree.run)]=tree.LS
+            
     print "auto", runs
-    runs.sort()
+    tfile.Close()
 
-tree.SetBranchStatus("fill*", 1)
-tree.SetBranchStatus("LS*", 1)
-tree.SetBranchStatus("PC_lumi_B3p8_perBX*", 1)
-tree.SetBranchStatus("PCBXid*",1)
+for run in maxLSInRun.keys():
+    print run,maxLSInRun[run]
+
+runs.sort()
+nLSInLumiBlock=500
+
+noisePerBX={}
+allLumiPerBX={}
+normPerBX={}
+corrPerBX={}
+
+allCorrLumiPerBX={}
+allLumiType1CorrPerBX={}
+allLumiType1And2CorrPerBX={}
+
+corrRatioPerBX={}
+noiseToCorrRatio={}
+
 
 for run in runs:
     runnum=int(run)
 
-    histnoise=ROOT.TH1F("histnoise","",3600,0,3600)
-    histfull=ROOT.TH1F("histfull","",3600,0,3600)
-    normfull=ROOT.TH1F("normfull","",3600,0,3600)
-    corrfill=ROOT.TH1F("corrfill","",3600,0,3600)
+    for iLB in range(maxLSInRun[run]/nLSInLumiBlock+1):
+        LBKey=run+"_LS"+str(iLB*nLSInLumiBlock+1)+"_LS"+str((iLB+1)*nLSInLumiBlock)
 
-    nentries=tree.GetEntries()
-
-    for iev in range(nentries):
-        tree.GetEntry(iev)
-        if tree.LS<3700 and tree.run==runnum:
-            for ibx in range(tree.nBX):
-                histfull.Fill(tree.PCBXid[ibx], tree.PC_lumi_B3p8_perBX[ibx])
-                normfull.Fill(tree.PCBXid[ibx], 1)
-
-    histfull.Divide(normfull)
-    histsig=histfull.Clone()
-    histfull.SetTitle("Random Triggers in Run "+run+";BX;Average PCC SBIL Hz/ub")
-    histsig.SetTitle("Random Triggers in Run "+run+", after correction;BX; Average PCC SBIL Hz/ub")
-    histfull.SetLineColor(416)
-    histfull.GetXaxis().SetRangeUser(0,2000)
-    histfull.GetYaxis().SetRangeUser(-0.02,0.3)
-
-    can=ROOT.TCanvas("can_corr_temp","",800,800)
-    canfull=ROOT.TCanvas("can_full","",800,800)
-    cansig=ROOT.TCanvas("can_sig","",800,800)
-    canfill=ROOT.TCanvas("can_fill","",800,800)
-    canratio=ROOT.TCanvas("ratio_fill","",800,800)
-
-    can.cd()
-    corrTemplate.SetTitle("Correction Function Template")
-    corrTemplate.Draw("HIST")
-    can.SaveAs("SBIL_randoms_"+run+"_corrTemplate_"+label+".png")
-
-    canfull.cd()
-    histfull.Draw()
-    canfull.SaveAs("full_SBIL_randoms_"+run+"_full_"+label+".png")
-
-
-    cansig.cd()
-    noise=0
-
-
-
-    # FIXME
-    # 36/35 are magic numbers
-    # they may not always be valid
-    #for l in range(1,36):
-    #    noise=noise+histsig.GetBinContent(l)
-    #noise=noise/35
-    #print("noise: {0}".format(noise))
+        noisePerBX[LBKey]=ROOT.TH1F("noisePerBX"+LBKey,"",3600,0,3600)
+        allLumiPerBX[LBKey]=ROOT.TH1F("allLumiPerBX"+LBKey,"",3600,0,3600)
+        normPerBX[LBKey]=ROOT.TH1F("normPerBX"+LBKey,"",3600,0,3600)
+        corrPerBX[LBKey]=ROOT.TH1F("corrPerBX"+LBKey,"",3600,0,3600)
     
-    gap=False
-    idl=0
-    num_cut=20
-    for l in range(1,500):
-        if histsig.GetBinContent(l)==0 and histsig.GetBinContent(l+1)==0 and histsig.GetBinContent(l+2)==0:
-            gap=True
-        if gap and histsig.GetBinContent(l)!=0 and idl<num_cut:
-            noise+=histsig.GetBinContent(l)
-            idl+=1
 
-    noise=noise/num_cut
-         
+for filename in filenames:
+    tfile=ROOT.TFile(filename)
+    tree=tfile.Get("certtree")
+    
+    tree.SetBranchStatus("*",0)
+    tree.SetBranchStatus("run*", 1)
+    tree.SetBranchStatus("fill*", 1)
+    tree.SetBranchStatus("LS*", 1)
+    tree.SetBranchStatus("PC_lumi_B3p8_perBX*", 1)
+    tree.SetBranchStatus("PCBXid*",1)
+    
+    nentries=tree.GetEntries()
+   
+    
+    print "entries",nentries
+    for iev in range(nentries):
+        if iev%1000==0:
+            print "event",iev
+        tree.GetEntry(iev)
+        if str(tree.run) not in runs:
+            continue
+        iLB=(tree.LS-1)/nLSInLumiBlock
+        LBKey=str(tree.run)+"_LS"+str(iLB*nLSInLumiBlock+1)+"_LS"+str((iLB+1)*nLSInLumiBlock)
+        #print tree.run,tree.LS,iLB,LBKey
+        for ibx in range(tree.nBX):
+            try:
+                allLumiPerBX[LBKey].Fill(tree.PCBXid[ibx], tree.PC_lumi_B3p8_perBX[ibx])
+                normPerBX[LBKey].Fill(tree.PCBXid[ibx], 1)
+            except:
+                print "problem filling allLumiPerBX or normPerBX"
+                print tree.run,tree.LS,iLB,LBKey
 
-    for k in range(1,3600):
-        bin_k = histsig.GetBinContent(k)
-        histsig.SetBinContent(k+1, histsig.GetBinContent(k+1)-bin_k*a1-bin_k*bin_k*a2)
-        corrfill.SetBinContent(k+1, corrfill.GetBinContent(k+1)+bin_k*a1+bin_k*bin_k*a2)
-    hist_afterTypeI=histsig.Clone()
-
-    for m in range(1,3600):
-        histsig.SetBinContent(m, histsig.GetBinContent(m)-noise)
-        histnoise.SetBinContent(m, noise)
-        corrfill.SetBinContent(m, corrfill.GetBinContent(m)+noise)
+    tfile.Close()
 
 
-    for i in range(1,3600):
-        for j in range(i+1,3600):
-            binsig_i=histsig.GetBinContent(i)
-            binfull_i=histfull.GetBinContent(i)
-            if not args.useresponse:
-                histsig.SetBinContent(j,histsig.GetBinContent(j)-binsig_i*corrTemplate.GetBinContent(j-i))
-                corrfill.SetBinContent(j, corrfill.GetBinContent(j)+binsig_i*corrTemplate.GetBinContent(j-i))
-            else:
-                histsig.SetBinContent(j,histsig.GetBinContent(j)-binfull_i*corrTemplate.GetBinContent(j-i))
-                corrfill.SetBinContent(j,corrfill.GetBinContent(j)+binfull_i*corrTemplate.GetBinContent(j-i))
+can=ROOT.TCanvas("can_corr_temp","",800,800)
+canfull=ROOT.TCanvas("can_full","",800,800)
+cansig=ROOT.TCanvas("can_sig","",800,800)
+canfill=ROOT.TCanvas("can_fill","",800,800)
+canratio=ROOT.TCanvas("ratio_fill","",800,800)
+        
+for run in runs:
+    runnum=int(run)
 
-    histsig.GetXaxis().SetRangeUser(0,2000)
-    histsig.GetYaxis().SetRangeUser(-0.03,3.0)
-    histsig.Draw()
-    cansig.SaveAs("full_SBIL_randoms_"+run+"_signal"+label+".png")
+    for iLB in range(maxLSInRun[run]/nLSInLumiBlock+1):
+        LBKey=run+"_LS"+str(iLB*nLSInLumiBlock+1)+"_LS"+str((iLB+1)*nLSInLumiBlock)
+        
+        allLumiPerBX[LBKey].Divide(normPerBX[LBKey])
+        allCorrLumiPerBX[LBKey]=allLumiPerBX[LBKey].Clone()
+        allLumiPerBX[LBKey].SetTitle("Random Triggers in Run "+run+";BX;Average PCC SBIL Hz/ub")
+        allCorrLumiPerBX[LBKey].SetTitle("Random Triggers in Run "+run+", after correction;BX; Average PCC SBIL Hz/ub")
+        allLumiPerBX[LBKey].SetLineColor(416)
+        #allLumiPerBX[LBKey].GetXaxis().SetRangeUser(0,2000)
+        allLumiPerBX[LBKey].GetYaxis().SetRangeUser(-0.02,0.3)
+        
+        can.cd()
+        type2CorrTemplate.SetTitle("Correction Function Template")
+        #type2CorrTemplate.Draw("HIST")
+        #if args.savePNGs:
+        #    can.SaveAs("SBIL_randoms_"+run+"_type2CorrTemplate_"+label+".png")
+        
+        canfull.cd()
+        allLumiPerBX[LBKey].Draw()
+        #if args.savePNGs:
+        #    canfull.SaveAs("full_SBIL_randoms_"+run+"_full_"+label+".png")
+        
+        cansig.cd()
+        noise=0
+        
+        gap=False
+        idl=0
+        num_cut=20
+        for l in range(1,500):
+            if allCorrLumiPerBX[LBKey].GetBinContent(l)==0 and allCorrLumiPerBX[LBKey].GetBinContent(l+1)==0 and allCorrLumiPerBX[LBKey].GetBinContent(l+2)==0:
+                gap=True
+            if gap and allCorrLumiPerBX[LBKey].GetBinContent(l)!=0 and idl<num_cut:
+                noise+=allCorrLumiPerBX[LBKey].GetBinContent(l)
+                idl+=1
+        
+        noise=noise/num_cut
+             
+        
+        for k in range(1,3600):
+            bin_k = allCorrLumiPerBX[LBKey].GetBinContent(k)
+            allCorrLumiPerBX[LBKey].SetBinContent(k+1, allCorrLumiPerBX[LBKey].GetBinContent(k+1)-bin_k*a1-bin_k*bin_k*a2)
+            corrPerBX[LBKey].SetBinContent(k+1, corrPerBX[LBKey].GetBinContent(k+1)+bin_k*a1+bin_k*bin_k*a2)
+        allLumiType1CorrPerBX[LBKey]=allCorrLumiPerBX[LBKey].Clone()
+        
+        for m in range(1,3600):
+            allCorrLumiPerBX[LBKey].SetBinContent(m, allCorrLumiPerBX[LBKey].GetBinContent(m)-noise)
+            noisePerBX[LBKey].SetBinContent(m, noise)
+            corrPerBX[LBKey].SetBinContent(m, corrPerBX[LBKey].GetBinContent(m)+noise)
+        
+        
+        for i in range(1,3600):
+            for j in range(i+1,3600):
+                binsig_i=allCorrLumiPerBX[LBKey].GetBinContent(i)
+                binfull_i=allLumiPerBX[LBKey].GetBinContent(i)
+                if not args.useresponse:
+                    allCorrLumiPerBX[LBKey].SetBinContent(j,allCorrLumiPerBX[LBKey].GetBinContent(j)-binsig_i*type2CorrTemplate.GetBinContent(j-i))
+                    corrPerBX[LBKey].SetBinContent(j, corrPerBX[LBKey].GetBinContent(j)+binsig_i*type2CorrTemplate.GetBinContent(j-i))
+                else:
+                    allCorrLumiPerBX[LBKey].SetBinContent(j,allCorrLumiPerBX[LBKey].GetBinContent(j)-binfull_i*type2CorrTemplate.GetBinContent(j-i))
+                    corrPerBX[LBKey].SetBinContent(j,corrPerBX[LBKey].GetBinContent(j)+binfull_i*type2CorrTemplate.GetBinContent(j-i))
+        
+        allLumiType1And2CorrPerBX[LBKey]=allCorrLumiPerBX[LBKey].Clone()
+        
+        if args.quadTrainCorr != 0:
+            print "Quadratic subtraction for trains"
+            #find train BXs
+            trainBXs=[]
+            trainBXs2=[]
+            maxBX=0
+            for ibx in range(1,3600):
+                thisSBIL=allCorrLumiPerBX[LBKey].GetBinContent(ibx)
+                if thisSBIL>maxBX:
+                    maxBX=thisSBIL
+        
+            #this ignores the leading bx-desired behavior
+            print maxBX
+            for ibx in range(2,3600):
+                prevBXActive=(allCorrLumiPerBX[LBKey].GetBinContent(ibx-1)>maxBX*0.2)
+                prevBXActive2=(allCorrLumiPerBX[LBKey].GetBinContent(ibx-1)>0.5)
+                
+                if prevBXActive:
+                    curBXActive=(allCorrLumiPerBX[LBKey].GetBinContent(ibx)>maxBX*0.2)
+                    if curBXActive:
+                        trainBXs.append(ibx)
+        
+                if prevBXActive2:
+                    curBXActive2=(allCorrLumiPerBX[LBKey].GetBinContent(ibx)>0.5)
+                    if curBXActive2:
+                        trainBXs2.append(ibx)
 
-    canfill.cd()
-    corrfill.SetTitle("The Overall Correction in the Run "+run)
-    corrfill.Draw()
-    canfill.SaveAs("full_SBIL_randoms_"+run+"_fill_"+label+".png")
-
-    ratiocorr=corrfill.Clone()
-    ratiocorr.Divide(histfull)
-
-    canratio.cd()
-    ratiocorr.SetTitle("The Ratio of Overall Correction in the Run "+run)
-    ratiocorr.GetXaxis().SetTitle("BX")
-    ratiocorr.GetYaxis().SetTitle("Ratio")
-    ratiocorr.Draw()
-    canratio.SaveAs("full_SBIL_randoms_"+run+"_ratio_"+label+".png")
-
-    ratio_gap=ROOT.TH1F("ratio_gap", "",100,0,2.8)
-    checklist=findRange(histfull, 0.2)
-    for l in checklist:
-        ratio_gap.Fill(ratiocorr.GetBinContent(l))
-
-    ratio_noise=histnoise.Clone()
-    ratio_noise.Divide(corrfill)
-
-    newfile.WriteTObject(histfull,  "Before_Corr_"+run)
-    newfile.WriteTObject(hist_afterTypeI, "After_TypeI_Corr_"+run)
-    newfile.WriteTObject(histsig, "After_Corr_"+run)
-    newfile.WriteTObject(histnoise, "Noise_"+run)
-    newfile.WriteTObject(corrfill, "Overall_Correction_"+run)
-    newfile.WriteTObject(ratiocorr, "Ratio_Correction_"+run)
-    newfile.WriteTObject(ratio_gap, "Ratio_Nonlumi_"+run)
-    newfile.WriteTObject(ratio_noise, "Ratio_Noise_"+run)
+                print ibx,"prevlumi",allCorrLumiPerBX[LBKey].GetBinContent(ibx-1),prevBXActive,prevBXActive2,len(trainBXs),len(trainBXs2)
+               
+        
+            print LBKey,"trainBXs",len(trainBXs)
+            print LBKey,"trainBXs2",len(trainBXs2)
+        
+            for ibx in trainBXs:
+                binsig_i=allCorrLumiPerBX[LBKey].GetBinContent(ibx)
+                binfull_i=allLumiPerBX[LBKey].GetBinContent(ibx)
+                allCorrLumiPerBX[LBKey].SetBinContent(ibx,binsig_i-args.quadTrainCorr*binsig_i*binsig_i)
+                corrPerBX[LBKey].SetBinContent(ibx, corrPerBX[LBKey].GetBinContent(ibx)+args.quadTrainCorr*binsig_i*binsig_i)
+            
+        
+        #allCorrLumiPerBX.GetXaxis().SetRangeUser(0,2000)
+        allCorrLumiPerBX[LBKey].GetYaxis().SetRangeUser(-0.03,3.0)
+        allCorrLumiPerBX[LBKey].Draw()
+        #if args.savePNGs:
+        #    cansig.SaveAs("full_SBIL_randoms_"+run+"_signal"+label+".png")
+        
+        #canfill.cd()
+        #corrPerBX[LBKey].SetTitle("The Overall Correction in the Run "+run)
+        #corrPerBX[LBKey].Draw()
+        #if args.savePNGs:
+        #    canfill.SaveAs("full_SBIL_randoms_"+run+"_fill_"+label+".png")
+        
+        corrRatioPerBX[LBKey]=corrPerBX[LBKey].Clone()
+        corrRatioPerBX[LBKey].Divide(allLumiPerBX[LBKey])
+        
+        #canratio.cd()
+        #corrRatioPerBX[LBKey].SetTitle("The Ratio of Overall Correction in the Run "+run)
+        #corrRatioPerBX[LBKey].GetXaxis().SetTitle("BX")
+        #corrRatioPerBX[LBKey].GetYaxis().SetTitle("Ratio")
+        #corrRatioPerBX[LBKey].Draw()
+        #if args.savePNGs:
+        #    canratio.SaveAs("full_SBIL_randoms_"+run+"_ratio_"+label+".png")
+        
+        #ratio_gap=ROOT.TH1F("ratio_gap", "",100,0,2.8)
+        #gapList=findRange(allLumiPerBX, 0.2)
+        #for l in gapList:
+        #    ratio_gap.Fill(corrRatioPerBX[LBKey].GetBinContent(l))
+        
+        noiseToCorrRatio[LBKey]=noisePerBX[LBKey].Clone()
+        noiseToCorrRatio[LBKey].Divide(corrPerBX[LBKey])
+        
+        newfile.WriteTObject(allLumiPerBX[LBKey],  "Before_Corr_"+LBKey)
+        newfile.WriteTObject(allLumiType1CorrPerBX[LBKey], "After_TypeI_Corr_"+LBKey)
+        newfile.WriteTObject(allLumiType1And2CorrPerBX[LBKey], "After_TypeI_TypeII_Corr_"+LBKey)
+        newfile.WriteTObject(allCorrLumiPerBX[LBKey], "After_Corr_"+LBKey)
+        newfile.WriteTObject(noisePerBX[LBKey], "Noise_"+LBKey)
+        newfile.WriteTObject(corrPerBX[LBKey], "Overall_Correction_"+LBKey)
+        newfile.WriteTObject(corrRatioPerBX[LBKey], "Ratio_Correction_"+LBKey)
+        #newfile.WriteTObject(ratio_gap, "Ratio_Nonlumi_"+LBKey)
+        newfile.WriteTObject(noiseToCorrRatio[LBKey], "Ratio_Noise_"+LBKey)
