@@ -68,7 +68,11 @@ void Draw_PCCratio(){
   //  ratio_2->SetLineWidth(4);
   //  ratio_3->SetLineWidth(4);
 
-    ratio_0->GetXaxis()->SetTitle("Time Stamp");
+    ratio_0->GetXaxis()->SetTitle("Date (Day/Month)");
+    ratio_0->GetXaxis()->SetTimeDisplay(1);
+    //ratio_0->GetXaxis()->SetTimeOffset("GMT");
+    ratio_0->GetXaxis()->SetNdivisions(-503);
+    ratio_0->GetXaxis()->SetTimeFormat("  %d/%m %F1970-01-01 00:00:00");
     ratio_0->GetYaxis()->SetTitle("Relative Contribution");
     //ratio_0->GetXaxis()->SetRangeUser(251000, 261000);
     ratio_0->GetYaxis()->SetRangeUser(0.17,0.35);
@@ -98,6 +102,6 @@ void Draw_PCCratio(){
     text2->SetTextFont(62);
     text->Draw("same");
     text2->Draw("same");
-    c->SaveAs("PCC_stability.C");
-    c->SaveAs("PCC_stability.root");
+    c->SaveAs("new_PCC_stability.eps");
+    c->SaveAs("new_PCC_stability.png");
 }
